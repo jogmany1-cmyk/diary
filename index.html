@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#FFF5F7">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>롴이복희 다이어리</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💗</text></svg>">
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+ --me:#5B8DEF; --you:#F472B6; --our:#A78BFA;
+ --ink:#4A3F45; --sub:#A2909A; --line:#F3E3E9;
+ --card:rgba(255,255,255,.82); --ok:#4FAE7C; --warn:#F0806A;
+ --r:20px;
+}
+html,body{margin:0;padding:0;height:100%;overscroll-behavior:none}
+body{
+ font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Pretendard','Malgun Gothic',sans-serif;
+ color:var(--ink);background:#FBEFF3;
+ display:flex;align-items:center;justify-content:center;min-height:100dvh;padding:0;
+}
+/* ---- lovely background ---- */
+#bg{position:fixed;inset:0;z-index:0;overflow:hidden;
+ background:linear-gradient(165deg,#FFF3F6 0%,#FDF0F7 32%,#F3F0FE 66%,#EFF6FD 100%)}
+#bg .blob{position:absolute;border-radius:50%;filter:blur(48px);opacity:.55}
+#bg .b1{width:320px;height:320px;background:#FFC9DC;top:-90px;left:-70px}
+#bg .b2{width:280px;height:280px;background:#D7C7FB;top:24%;right:-100px}
+#bg .b3{width:300px;height:300px;background:#BFE3F7;bottom:12%;left:-90px}
+#bg .b4{width:240px;height:240px;background:#FFE1B8;bottom:-70px;right:-40px}
+#bg .hearts{position:absolute;inset:0;opacity:.28;
+ background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='58' height='58' viewBox='0 0 58 58'%3E%3Cg fill='%23F7B8CE' fill-opacity='.55'%3E%3Cpath d='M14 20c-1.6-1.9-4.6-1.6-5.8.5-1 1.8-.3 4 1.2 5.4L14 30l4.6-4.1c1.5-1.4 2.2-3.6 1.2-5.4-1.2-2.1-4.2-2.4-5.8-.5z'/%3E%3Cpath d='M43 44c-1.6-1.9-4.6-1.6-5.8.5-1 1.8-.3 4 1.2 5.4L43 54l4.6-4.1c1.5-1.4 2.2-3.6 1.2-5.4-1.2-2.1-4.2-2.4-5.8-.5z'/%3E%3Ccircle cx='45' cy='14' r='2.2'/%3E%3Ccircle cx='12' cy='47' r='2.2'/%3E%3C/g%3E%3C/svg%3E")}
+.app{position:relative;z-index:1;width:100%;max-width:480px;height:100dvh;display:flex;flex-direction:column}
+/* ---- header ---- */
+.hd{flex:0 0 auto;padding:calc(env(safe-area-inset-top) + 14px) 18px 8px;display:flex;align-items:center;gap:10px}
+.hd h1{margin:0;font-size:20px;font-weight:800;letter-spacing:-.4px}
+.hd .sub{font-size:11.5px;color:var(--sub);margin-top:2px;font-weight:600}
+.hd .sp{flex:1}
+.ib{width:36px;height:36px;border:0;border-radius:13px;background:rgba(255,255,255,.8);display:grid;place-items:center;cursor:pointer;box-shadow:0 2px 8px rgba(180,120,150,.13);backdrop-filter:blur(8px)}
+.ib svg{width:17px;height:17px;stroke:#7A6A72;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ib:active{transform:scale(.94)}
+/* ---- scroll ---- */
+.scr{flex:1;overflow-y:auto;padding:4px 14px 96px;-webkit-overflow-scrolling:touch}
+.scr::-webkit-scrollbar{width:0}
+.card{background:var(--card);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.7);
+ border-radius:var(--r);padding:14px;margin-bottom:10px;box-shadow:0 3px 14px rgba(190,140,165,.09)}
+.sec{margin:16px 2px 8px;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:space-between}
+.sec .more{font-size:11.5px;color:var(--sub);font-weight:700;cursor:pointer}
+/* ---- calendar ---- */
+.mrow{display:flex;align-items:center;justify-content:space-between;margin:2px 2px 10px}
+.mrow .m{font-size:18px;font-weight:800}
+.mrow .tot{font-size:11.5px;color:var(--sub);margin-top:2px;font-weight:600}
+.mrow .tot b{color:var(--warn)}
+.nav{display:flex;gap:5px}
+.nav button{width:30px;height:30px;border:0;border-radius:11px;background:rgba(255,255,255,.85);cursor:pointer;font-size:14px;color:#7A6A72;box-shadow:0 2px 6px rgba(190,140,165,.12)}
+.dow{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:5px}
+.dow span{text-align:center;font-size:10.5px;color:var(--sub);font-weight:700}
+.dow span:first-child{color:#F08098}.dow span:last-child{color:#7FA8E0}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cell{position:relative;aspect-ratio:.84;border-radius:14px;overflow:hidden;cursor:pointer;
+ background:rgba(255,255,255,.72);border:1px solid rgba(255,255,255,.8);box-shadow:0 2px 7px rgba(190,140,165,.07)}
+.cell.off{background:transparent;border-color:transparent;box-shadow:none;cursor:default}
+.cell.today{border:2px solid var(--you);box-shadow:0 3px 12px rgba(244,114,182,.28)}
+.cell:active{transform:scale(.95)}
+.cell .d{position:absolute;top:5px;left:6px;font-size:11px;font-weight:800;z-index:3}
+.cell .ph{position:absolute;inset:0;background-size:cover;background-position:center}
+.cell .ph:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.3),transparent 42%,rgba(0,0,0,.45))}
+.cell.hp .d{color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.7)}
+.cell .wx{position:absolute;top:4px;right:5px;font-size:11px;z-index:3;line-height:1}
+.cell .sp{position:absolute;bottom:4px;left:0;right:0;text-align:center;font-size:9.5px;font-weight:800;z-index:3;color:var(--warn)}
+.cell.hp .sp{color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.8)}
+.cell .dots{position:absolute;bottom:15px;left:0;right:0;display:flex;justify-content:center;gap:3px;z-index:3}
+.cell .dots i{width:5px;height:5px;border-radius:50%}
+.cell .dy{position:absolute;top:19px;left:6px;font-size:9px;z-index:3}
+/* ---- day ---- */
+.wxrow{display:flex;gap:5px;overflow-x:auto;padding:2px 0 4px;margin-bottom:4px}
+.wxrow::-webkit-scrollbar{height:0}
+.wx1{flex:0 0 auto;width:40px;height:40px;border-radius:14px;border:1.5px solid transparent;background:rgba(255,255,255,.75);
+ display:grid;place-items:center;font-size:20px;cursor:pointer}
+.wx1.on{border-color:var(--you);background:#FFF0F5;box-shadow:0 3px 10px rgba(244,114,182,.22)}
+.photos{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:12px}
+.photos::-webkit-scrollbar{height:0}
+.photos .p{position:relative;flex:0 0 auto;width:118px;height:118px;border-radius:16px;background-size:cover;background-position:center;box-shadow:0 3px 12px rgba(190,140,165,.16)}
+.photos .p b{position:absolute;top:5px;right:5px;width:20px;height:20px;border-radius:50%;background:rgba(0,0,0,.45);color:#fff;font-size:11px;display:grid;place-items:center;cursor:pointer}
+.photos .add{flex:0 0 auto;width:118px;height:118px;border-radius:16px;border:1.6px dashed #E9C6D5;display:grid;place-items:center;color:#D9A8BE;font-size:26px;background:rgba(255,255,255,.6);cursor:pointer}
+.who{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:800;margin-bottom:9px}
+.av{width:21px;height:21px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:10.5px;font-weight:800}
+.moods{display:flex;gap:5px;margin-bottom:9px;flex-wrap:wrap}
+.md{font-size:17px;width:34px;height:34px;border-radius:12px;background:rgba(255,255,255,.7);border:1.5px solid transparent;display:grid;place-items:center;cursor:pointer}
+.md.on{border-color:var(--our);background:#F4F0FF}
+textarea{width:100%;border:0;outline:0;background:transparent;font-family:inherit;font-size:13.5px;line-height:1.75;color:var(--ink);resize:none;min-height:76px}
+textarea::placeholder{color:#CDB9C4}
+.ro{font-size:13.5px;line-height:1.75;white-space:pre-wrap;word-break:break-word}
+.empty{font-size:12.5px;color:var(--sub);padding:6px 0}
+/* expenses */
+.exp{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px dashed var(--line)}
+.exp:last-child{border-bottom:0}
+.exp .ic{width:33px;height:33px;border-radius:12px;background:#FDF2F6;display:grid;place-items:center;font-size:15px;flex:0 0 auto}
+.exp .t{flex:1;min-width:0}
+.exp .t b{display:block;font-size:12.5px;font-weight:700}
+.exp .t span{font-size:10.5px;color:var(--sub)}
+.exp .a{font-size:13.5px;font-weight:800;white-space:nowrap}
+.exp .x{color:#D9C0CB;font-size:15px;cursor:pointer;padding:0 2px}
+.sumrow{display:flex;justify-content:space-between;font-size:12.5px;padding:10px 0 2px;border-top:1px solid var(--line);margin-top:6px;font-weight:800}
+/* checks */
+.chk{display:grid;grid-template-columns:1fr 40px 40px;gap:10px;align-items:center;font-size:13px}
+.chk .h{font-size:10.5px;color:var(--sub);font-weight:800;text-align:center}
+.cb{width:26px;height:26px;border-radius:9px;border:2px solid #EAD5DE;display:grid;place-items:center;cursor:pointer;background:rgba(255,255,255,.8);margin:0 auto;font-size:14px;font-weight:900;color:transparent}
+.cb.on{border-color:transparent;color:#fff}
+.cb.on.me{background:var(--me);box-shadow:0 3px 9px rgba(91,141,239,.32)}
+.cb.on.you{background:var(--you);box-shadow:0 3px 9px rgba(244,114,182,.32)}
+.cb:active{transform:scale(.9)}
+/* list */
+.lc{display:flex;gap:12px;background:var(--card);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.7);
+ border-radius:var(--r);padding:12px;margin-bottom:10px;cursor:pointer;box-shadow:0 3px 14px rgba(190,140,165,.09)}
+.lc .th{width:70px;height:70px;border-radius:15px;flex:0 0 auto;background-size:cover;background-position:center;
+ background-color:#FBECF2;display:grid;place-items:center;font-size:20px}
+.lc .c{flex:1;min-width:0}
+.lc .dt{font-size:12.5px;font-weight:800;margin-bottom:4px;display:flex;align-items:center;gap:5px}
+.lc .tx{font-size:11.5px;color:#7A6A72;line-height:1.55;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.lc .mt{display:flex;gap:9px;margin-top:7px;font-size:10.5px;color:var(--sub);font-weight:600}
+.lc .mt b{color:var(--warn)}
+.filters{display:flex;gap:7px;overflow-x:auto;padding:3px 2px 10px}
+.filters::-webkit-scrollbar{height:0}
+.f{flex:0 0 auto;font-size:11.5px;padding:7px 14px;border-radius:20px;background:rgba(255,255,255,.75);
+ border:1px solid rgba(255,255,255,.9);color:#7A6A72;cursor:pointer;font-weight:700}
+.f.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+/* ledger */
+.bs{display:flex;gap:9px;margin-bottom:4px}
+.bs .b{flex:1;background:var(--card);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.7);border-radius:17px;padding:12px 11px;text-align:center}
+.bs .b span{font-size:10.5px;color:var(--sub);font-weight:700}
+.bs .b b{display:block;font-size:15.5px;margin-top:4px;letter-spacing:-.4px}
+.lgd .r{display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 0}
+.lgd .r i{width:10px;height:10px;border-radius:4px;flex:0 0 auto}
+.lgd .r span{flex:1;color:#7A6A72;font-weight:600}
+.lgd .r b{font-weight:800}
+.bar{height:8px;border-radius:5px;background:rgba(255,255,255,.7);overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;border-radius:5px}
+.prow{display:flex;justify-content:space-between;font-size:12.5px;margin-top:12px;font-weight:700}
+.prow:first-child{margin-top:0}
+.trend{display:flex;align-items:flex-end;gap:2px;height:66px;margin-top:8px}
+.trend i{flex:1;background:#E7DCFB;border-radius:3px 3px 0 0;min-height:2px}
+.trend i.hi{background:var(--our)}
+/* modal */
+.mk{position:fixed;inset:0;background:rgba(70,50,60,.42);backdrop-filter:blur(3px);z-index:50;display:none;align-items:flex-end;justify-content:center}
+.mk.on{display:flex}
+.sheet{width:100%;max-width:480px;background:#FFF9FB;border-radius:26px 26px 0 0;padding:18px 18px calc(env(safe-area-inset-bottom) + 18px);max-height:88dvh;overflow-y:auto;animation:up .22s ease}
+@keyframes up{from{transform:translateY(28px);opacity:.4}to{transform:none;opacity:1}}
+.sheet h3{margin:0 0 14px;font-size:16px;font-weight:800;text-align:center}
+.fl{font-size:11.5px;color:var(--sub);font-weight:800;margin:12px 2px 6px}
+.in{width:100%;border:1.5px solid var(--line);background:#fff;border-radius:14px;padding:12px 14px;font-size:14.5px;font-family:inherit;outline:0;color:var(--ink)}
+.in:focus{border-color:var(--you)}
+.amt{font-size:22px;font-weight:800;text-align:right;letter-spacing:-.5px}
+.pads{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:8px}
+.pads button{padding:11px 0;border:0;border-radius:12px;background:#fff;font-size:12.5px;font-weight:700;cursor:pointer;color:#7A6A72;border:1px solid var(--line);font-family:inherit}
+.opts{display:flex;gap:7px;flex-wrap:wrap}
+.opt{font-size:12.5px;padding:9px 14px;border-radius:14px;background:#fff;border:1.5px solid var(--line);cursor:pointer;font-weight:700;color:#7A6A72}
+.opt.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.btns{display:flex;gap:9px;margin-top:18px}
+.btn{flex:1;padding:15px;border:0;border-radius:16px;font-size:14.5px;font-weight:800;cursor:pointer;font-family:inherit}
+.btn.g{background:#F1E6EB;color:#8A7680}
+.btn.p{background:linear-gradient(135deg,#F472B6,#A78BFA);color:#fff;box-shadow:0 5px 16px rgba(244,114,182,.35)}
+.btn:active{transform:scale(.97)}
+/* tabbar + fab */
+.tb{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:480px;display:flex;z-index:20;
+ background:rgba(255,252,253,.93);backdrop-filter:blur(16px);border-top:1px solid rgba(255,255,255,.9);
+ padding:8px 4px calc(env(safe-area-inset-bottom) + 9px)}
+.tb button{flex:1;border:0;background:transparent;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:3px 0;color:#C6B0BC;font-family:inherit}
+.tb button.on{color:var(--you)}
+.tb svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.tb span{font-size:9.5px;font-weight:800}
+.fab{position:fixed;left:50%;margin-left:calc(240px - 74px);bottom:calc(env(safe-area-inset-bottom) + 78px);
+ width:54px;height:54px;border-radius:19px;border:0;z-index:21;cursor:pointer;
+ background:linear-gradient(135deg,#F472B6,#A78BFA);color:#fff;font-size:27px;
+ box-shadow:0 8px 22px rgba(244,114,182,.42);display:grid;place-items:center}
+.fab:active{transform:scale(.93)}
+@media(max-width:480px){.fab{left:auto;right:16px;margin-left:0}}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:110px;background:rgba(74,63,69,.94);color:#fff;
+ padding:11px 20px;border-radius:22px;font-size:12.5px;font-weight:700;z-index:60;opacity:0;transition:.25s;pointer-events:none}
+.toast.on{opacity:1}
+.hl{background:#FFEEB8;border-radius:4px;padding:0 3px}
+.pill{font-size:10px;padding:3px 9px;border-radius:12px;background:#FDEEF4;color:#C86E96;font-weight:800}
+</style>
+</head>
+<body>
+<div id="bg"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div><div class="blob b4"></div><div class="hearts"></div></div>
+
+<div class="app">
+  <div class="hd">
+    <button class="ib" id="bk" style="display:none"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <div><h1 id="ttl">롴이복희 다이어리</h1><div class="sub" id="stl"></div></div>
+    <div class="sp"></div>
+    <button class="ib" id="who"></button>
+    <button class="ib" id="sbtn"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></button>
+  </div>
+  <div class="scr" id="scr"></div>
+</div>
+
+<button class="fab" id="fab">+</button>
+<div class="tb" id="tb"></div>
+<div class="mk" id="mk"><div class="sheet" id="sheet"></div></div>
+<div class="toast" id="toast"></div>
+<input type="file" id="fin" accept="image/*" multiple style="display:none">
+
+<script>
+/* ================= 저장소 ================= */
+const DB={db:null,mode:'mem',mem:{},
+ async init(){
+  try{
+   if(typeof indexedDB!=='undefined'&&indexedDB){
+    const ok=await new Promise(r=>{let done=false;
+     const fin=v=>{if(done)return;done=true;clearTimeout(to);r(v)};
+     const to=setTimeout(()=>fin(false),2500);
+     try{const q=indexedDB.open('ourdiary',1);
+      q.onupgradeneeded=e=>{const d=e.target.result;if(!d.objectStoreNames.contains('kv'))d.createObjectStore('kv')};
+      q.onsuccess=e=>{DB.db=e.target.result;fin(true)};
+      q.onerror=()=>fin(false); q.onblocked=()=>fin(false);
+     }catch(_){fin(false)}});
+    if(ok){DB.mode='idb';return}
+   }
+  }catch(_){}
+  try{localStorage.setItem('__od','1');localStorage.removeItem('__od');DB.mode='ls';return}catch(_){}
+  DB.mode='mem';
+ },
+ async get(k){try{
+   if(DB.mode==='idb')return await new Promise(r=>{
+     const t=DB.db.transaction('kv','readonly').objectStore('kv').get(k);
+     t.onsuccess=()=>r(t.result); t.onerror=()=>r(undefined)});
+   if(DB.mode==='ls'){const v=localStorage.getItem('od:'+k);return v===null?undefined:v}
+   return DB.mem[k];
+  }catch(_){return undefined}},
+ async set(k,v){try{
+   if(DB.mode==='idb')return await new Promise(r=>{
+     const t=DB.db.transaction('kv','readwrite').objectStore('kv').put(v,k);
+     t.onsuccess=()=>r(true); t.onerror=()=>r(false)});
+   if(DB.mode==='ls'){localStorage.setItem('od:'+k,v);return true}
+   DB.mem[k]=v;return true;
+  }catch(e){try{toast('저장 공간이 부족해요')}catch(_){} return false}},
+ async del(k){try{
+   if(DB.mode==='idb')return await new Promise(r=>{
+     const t=DB.db.transaction('kv','readwrite').objectStore('kv').delete(k);
+     t.onsuccess=()=>r(true); t.onerror=()=>r(false)});
+   if(DB.mode==='ls'){localStorage.removeItem('od:'+k);return true}
+   delete DB.mem[k];return true;
+  }catch(_){return false}}};
+function blob2url(b){return new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result);f.readAsDataURL(b)})}
+
+const DEF={
+ names:{me:'나',you:'짝꿍'}, since:'2023-02-06', profile:'me',
+ checkItems:['외식 안 하기','운동하기','지출 0원','영어공부'],
+ cats:[['식비','🍚'],['카페·간식','☕'],['교통','🚇'],['생활용품','🧴'],['문화·여가','🎬'],['의료·건강','💊'],['경조사','🎁'],['기타','📦']],
+ pays:['카드','현금','계좌이체','간편결제'],
+ days:{}
+};
+let S=null, PHOTOS={};
+
+async function load(){
+ await DB.init();
+ let raw=await DB.get('state');
+ let obj=null;
+ try{obj=typeof raw==='string'?JSON.parse(raw):raw}catch(_){obj=null}
+ S=obj?Object.assign(JSON.parse(JSON.stringify(DEF)),obj):JSON.parse(JSON.stringify(DEF));
+ if(!S.days)S.days={};
+ if(!S.checkItems||!S.checkItems.length)S.checkItems=DEF.checkItems.slice();
+}
+let saveT=null;
+function save(){clearTimeout(saveT);saveT=setTimeout(()=>{try{DB.set('state',JSON.stringify(S))}catch(_){}} ,180)}
+
+/* ================= 유틸 ================= */
+const WX=['☀️','🌤️','☁️','🌧️','⛈️','🌨️','🌫️','🌈'];
+const MOOD=['😍','😊','🙂','😐','😔','😢','😡','😴'];
+const MOODN={'😍':'행복','😊':'좋음','🙂':'보통','😐':'그저그럼','😔':'우울','😢':'슬픔','😡':'화남','😴':'피곤'};
+const pad=n=>String(n).padStart(2,'0');
+const key=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parse=k=>{const[a,b,c]=k.split('-').map(Number);return new Date(a,b-1,c)};
+const DOW=['일','월','화','수','목','금','토'];
+function won(n){n=Math.abs(n);
+ if(n>=100000000)return (n/100000000).toFixed(1).replace(/\.0$/,'')+'억';
+ if(n>=10000)return (n/10000).toFixed(1).replace(/\.0$/,'')+'만';
+ if(n>=1000)return (n/1000).toFixed(1).replace(/\.0$/,'')+'천';
+ return String(n)}
+const comma=n=>n.toLocaleString('ko-KR');
+function D(k){if(!S.days[k])S.days[k]={wx:null,diary:{},photos:[],exp:[],chk:{me:{},you:{}},places:[]};
+ const d=S.days[k];d.diary=d.diary||{};d.photos=d.photos||[];d.exp=d.exp||[];d.chk=d.chk||{me:{},you:{}};d.chk.me=d.chk.me||{};d.chk.you=d.chk.you||{};d.places=d.places||[];return d}
+function daySum(k){const d=S.days[k];return d?d.exp.reduce((a,b)=>a+(b.t==='in'?0:b.a),0):0}
+function hasAny(k){const d=S.days[k];if(!d)return false;
+ return !!(d.wx||d.photos.length||d.exp.length||Object.values(d.diary).some(v=>v&&v.text)||
+  Object.values(d.chk.me).some(Boolean)||Object.values(d.chk.you).some(Boolean))}
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),1500)}
+const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const OTHER=p=>p==='me'?'you':'me';
+
+/* 사진 URL 캐시 */
+async function pURL(id){
+ if(PHOTOS[id])return PHOTOS[id];
+ const b=await DB.get('p:'+id); if(!b)return null;
+ const u=(typeof b==='string')?b:URL.createObjectURL(b); PHOTOS[id]=u; return u;
+}
+async function hydrate(){
+ for(const el of document.querySelectorAll('[data-ph]')){
+   const u=await pURL(el.dataset.ph);
+   if(u)el.style.backgroundImage=`url(${u})`;
+ }
+}
+/* 사진 리사이즈 저장 */
+function resize(file){return new Promise(res=>{
+ const img=new Image(), fr=new FileReader();
+ fr.onload=()=>{img.onload=()=>{
+   const M=1600, s=Math.min(1,M/Math.max(img.width,img.height));
+   const c=document.createElement('canvas'); c.width=img.width*s|0; c.height=img.height*s|0;
+   c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+   c.toBlob(b=>res(b),'image/jpeg',.82);
+ }; img.src=fr.result}; fr.readAsDataURL(file)})}
+
+/* ================= 상태 ================= */
+let view='cal', cur=new Date(), selDate=key(new Date()), q='', filt='all';
+const PARENT={day:'cal',search:'cal',set:'more',memo:'more'};
+
+/* ================= 화면 ================= */
+const V={};
+
+V.cal=()=>{
+ const y=cur.getFullYear(), m=cur.getMonth();
+ const first=new Date(y,m,1).getDay(), last=new Date(y,m+1,0).getDate();
+ const tk=key(new Date());
+ let g='';
+ for(let i=0;i<first;i++)g+='<div class="cell off"></div>';
+ let mt=0;
+ for(let d=1;d<=last;d++){
+   const k=`${y}-${pad(m+1)}-${pad(d)}`, o=S.days[k], sp=daySum(k);
+   mt+=sp;
+   const ph=o&&o.photos.length?o.photos[0]:null;
+   const dm=o&&o.diary.me&&o.diary.me.text, dy=o&&o.diary.you&&o.diary.you.text;
+   const ck=o?[S.checkItems.some(c=>o.chk.me[c]),S.checkItems.some(c=>o.chk.you[c])]:[0,0];
+   g+=`<div class="cell ${ph?'hp':''} ${k===tk?'today':''}" onclick="openDay('${k}')">
+     ${ph?`<div class="ph" data-ph="${ph}"></div>`:''}
+     <div class="d">${d}</div>
+     ${o&&o.wx?`<div class="wx">${o.wx}</div>`:''}
+     ${(dm||dy)?`<div class="dy">${dm?'✍️':''}${dy?'💌':''}</div>`:''}
+     ${(ck[0]||ck[1])?`<div class="dots">${ck[0]?'<i style="background:var(--me)"></i>':''}${ck[1]?'<i style="background:var(--you)"></i>':''}</div>`:''}
+     ${sp>0?`<div class="sp">${won(sp)}</div>`:(o&&o.exp.length===0&&hasAny(k)?`<div class="sp" style="color:var(--ok)">0원</div>`:'')}
+   </div>`;
+ }
+ return `<div class="mrow">
+   <div><div class="m">${y}년 ${m+1}월</div><div class="tot">이달 지출 <b>${comma(mt)}원</b></div></div>
+   <div class="nav"><button onclick="mv(-1)">‹</button><button onclick="mv(1)">›</button></div></div>
+ <div class="dow">${DOW.map(d=>`<span>${d}</span>`).join('')}</div>
+ <div class="grid">${g}</div>
+ <div class="sec">오늘</div>
+ <div class="card" onclick="openDay('${tk}')" style="cursor:pointer">${todayCard(tk)}</div>`;
+};
+function todayCard(k){
+ const o=S.days[k];
+ if(!o||!hasAny(k))return `<div style="text-align:center;padding:8px 0">
+   <div style="font-size:26px">💗</div>
+   <div style="font-size:12.5px;color:var(--sub);margin-top:7px;font-weight:600">아직 오늘 기록이 없어요. 눌러서 시작해보세요</div></div>`;
+ const nMe=S.checkItems.filter(c=>o.chk.me[c]).length, nYou=S.checkItems.filter(c=>o.chk.you[c]).length;
+ return `<div style="display:flex;gap:11px;align-items:center">
+   ${o.photos.length?`<div style="width:56px;height:56px;border-radius:15px;background-size:cover;background-position:center" data-ph="${o.photos[0]}"></div>`
+   :`<div style="width:56px;height:56px;border-radius:15px;background:#FBECF2;display:grid;place-items:center;font-size:22px">${o.wx||'📖'}</div>`}
+   <div style="flex:1;min-width:0">
+     <div style="font-size:12.5px;font-weight:800;margin-bottom:4px">${o.wx?o.wx+' · ':''}일기 ${Object.values(o.diary).filter(v=>v&&v.text).length} · 사진 ${o.photos.length} · 지출 ${o.exp.length}건</div>
+     <div style="font-size:11px;color:var(--sub);font-weight:600">체크 ${nMe+nYou}/${S.checkItems.length*2} · ${comma(daySum(k))}원</div>
+   </div><div style="color:var(--sub);font-size:18px">›</div></div>`;
+}
+
+V.day=()=>{
+ const k=selDate, o=D(k), dt=parse(k), me=S.profile, you=OTHER(me);
+ const dm=o.diary[me]||{}, dy=o.diary[you]||{};
+ const tot=o.exp.reduce((a,b)=>a+(b.t==='in'?-b.a:b.a),0);
+ return `
+ <div class="card">
+   <div style="font-size:11.5px;color:var(--sub);font-weight:800;margin-bottom:8px">오늘 날씨</div>
+   <div class="wxrow">${WX.map(w=>`<div class="wx1 ${o.wx===w?'on':''}" onclick="setWx('${w}')">${w}</div>`).join('')}</div>
+ </div>
+
+ <div class="photos">
+   ${o.photos.map(id=>`<div class="p" data-ph="${id}"><b onclick="event.stopPropagation();delPhoto('${id}')">×</b></div>`).join('')}
+   <div class="add" onclick="addPhoto()">＋</div>
+ </div>
+
+ <div class="card">
+   <div class="who"><span class="av" style="background:var(--${me})">${S.names[me][0]}</span>${S.names[me]}의 일기
+     <span style="margin-left:auto;font-size:11px;color:var(--sub);font-weight:700">${dm.mood?dm.mood+' '+MOODN[dm.mood]:'기분 선택'}</span></div>
+   <div class="moods">${MOOD.map(x=>`<div class="md ${dm.mood===x?'on':''}" onclick="setMood('${x}')">${x}</div>`).join('')}</div>
+   <textarea id="dtx" placeholder="오늘 어땠어요?" oninput="setText(this.value)">${esc(dm.text||'')}</textarea>
+ </div>
+
+ <div class="card">
+   <div class="who"><span class="av" style="background:var(--${you})">${S.names[you][0]}</span>${S.names[you]}의 일기
+     <span style="margin-left:auto;font-size:11px;color:var(--sub);font-weight:700">${dy.mood?dy.mood+' '+MOODN[dy.mood]:''}</span></div>
+   ${dy.text?`<div class="ro">${esc(dy.text)}</div>`:`<div class="empty">아직 작성 전이에요. 우측 상단에서 프로필을 바꾸면 대신 쓸 수 있어요.</div>`}
+ </div>
+
+ <div class="sec">오늘의 지출 <span class="more" onclick="expSheet()">＋ 추가</span></div>
+ <div class="card">
+   ${o.exp.length?o.exp.map((e,i)=>`
+   <div class="exp"><div class="ic">${e.icon}</div>
+     <div class="t"><b>${esc(e.name||e.cat)}</b><span>${e.cat} · ${e.pay} · ${S.names[e.by]}</span></div>
+     <div class="a" style="color:${e.t==='in'?'var(--ok)':'var(--warn)'}">${e.t==='in'?'+':'-'}${comma(e.a)}</div>
+     <div class="x" onclick="delExp(${i})">×</div></div>`).join('')
+   :`<div class="empty">지출 기록이 없어요 ${hasAny(k)?'· 오늘 0원 달성 🎉':''}</div>`}
+   ${o.exp.length?`<div class="sumrow"><span>합계</span><span style="color:${tot>0?'var(--warn)':'var(--ok)'}">${tot>0?'-':'+'}${comma(Math.abs(tot))}원</span></div>`:''}
+ </div>
+
+ <div class="sec">오늘의 체크 <span class="more" onclick="go('set')">항목 편집</span></div>
+ <div class="card">
+   <div class="chk">
+     <div></div><div class="h">${S.names.me}</div><div class="h">${S.names.you}</div>
+     ${S.checkItems.map(c=>`
+       <div>${esc(c)}</div>
+       <div class="cb ${o.chk.me[c]?'on me':''}" onclick="tog('me','${esc(c)}')">✓</div>
+       <div class="cb ${o.chk.you[c]?'on you':''}" onclick="tog('you','${esc(c)}')">✓</div>`).join('')}
+   </div>
+ </div>
+
+ <div class="sec">오늘 간 곳 <span class="more" onclick="placeSheet()">＋ 추가</span></div>
+ <div class="card">
+   ${o.places.length?o.places.map((p,i)=>`
+   <div class="exp"><div class="ic">📍</div><div class="t"><b>${esc(p.n)}</b><span>${esc(p.c||'')}</span></div>
+   <div class="x" onclick="delPlace(${i})">×</div></div>`).join('')
+   :`<div class="empty">오늘 간 곳을 남겨보세요</div>`}
+ </div>`;
+};
+
+V.list=()=>{
+ let ks=Object.keys(S.days).filter(hasAny).sort().reverse();
+ if(filt==='photo')ks=ks.filter(k=>S.days[k].photos.length);
+ if(filt==='zero')ks=ks.filter(k=>S.days[k].exp.length===0);
+ if(filt==='diary')ks=ks.filter(k=>Object.values(S.days[k].diary).some(v=>v&&v.text));
+ const fs=[['all','전체'],['photo','사진 있는 날'],['diary','일기 쓴 날'],['zero','지출 0원']];
+ return `<div class="filters">${fs.map(f=>`<div class="f ${filt===f[0]?'on':''}" onclick="filt='${f[0]}';render()">${f[1]}</div>`).join('')}</div>
+ ${ks.length?ks.map(k=>{const o=S.days[k],d=parse(k);
+   const tx=(o.diary.me&&o.diary.me.text)||(o.diary.you&&o.diary.you.text)||'';
+   const nc=S.checkItems.filter(c=>o.chk.me[c]).length+S.checkItems.filter(c=>o.chk.you[c]).length;
+   return `<div class="lc" onclick="openDay('${k}')">
+     <div class="th" ${o.photos.length?`data-ph="${o.photos[0]}"`:''}>${o.photos.length?'':(o.wx||'📖')}</div>
+     <div class="c">
+       <div class="dt">${d.getMonth()+1}월 ${d.getDate()}일 ${DOW[d.getDay()]} ${o.wx||''}
+         ${o.diary.me&&o.diary.me.mood?`<span class="pill">${o.diary.me.mood}</span>`:''}</div>
+       <div class="tx">${tx?esc(tx):'<span style="color:#C9B4BF">일기 없음</span>'}</div>
+       <div class="mt"><span>지출 <b>${comma(daySum(k))}원</b></span><span>체크 ${nc}/${S.checkItems.length*2}</span><span>사진 ${o.photos.length}</span></div>
+     </div></div>`}).join('')
+ :`<div class="card" style="text-align:center;padding:34px 14px"><div style="font-size:30px">🌸</div>
+   <div style="font-size:13px;color:var(--sub);margin-top:10px;font-weight:600">기록이 쌓이면 여기에 모여요</div></div>`}`;
+};
+
+V.led=()=>{
+ const y=cur.getFullYear(), m=cur.getMonth(), pre=new Date(y,m-1,1);
+ const inM=k=>{const d=parse(k);return d.getFullYear()===y&&d.getMonth()===m};
+ const inP=k=>{const d=parse(k);return d.getFullYear()===pre.getFullYear()&&d.getMonth()===pre.getMonth()};
+ let out=0,inc=0,byCat={},byWho={me:0,you:0},byDay={},prev=0;
+ Object.keys(S.days).forEach(k=>{S.days[k].exp.forEach(e=>{
+   if(inP(k)&&e.t!=='in')prev+=e.a;
+   if(!inM(k))return;
+   if(e.t==='in'){inc+=e.a;return}
+   out+=e.a; byCat[e.cat]=(byCat[e.cat]||0)+e.a; byWho[e.by]=(byWho[e.by]||0)+e.a;
+   const dd=parse(k).getDate(); byDay[dd]=(byDay[dd]||0)+e.a;
+ })});
+ const cs=Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
+ const COL=['#F472B6','#5B8DEF','#A78BFA','#F6A96B','#4FAE7C','#EF8FA8','#7FC7E8','#C9A6E9'];
+ const tot=cs.reduce((a,b)=>a+b[1],0)||1;
+ let acc=0, segs='';
+ cs.forEach((c,i)=>{const p=c[1]/tot*100;
+   segs+=`<circle r="15.9" cx="18" cy="18" fill="none" stroke="${COL[i%8]}" stroke-width="5.4" stroke-dasharray="${p.toFixed(2)} ${(100-p).toFixed(2)}" stroke-dashoffset="${(25-acc).toFixed(2)}"/>`;acc+=p});
+ const last=new Date(y,m+1,0).getDate(), mx=Math.max(1,...Object.values(byDay));
+ const wp=byWho.me+byWho.you||1;
+ const diff=prev?out-prev:0;
+ return `<div class="mrow"><div class="m" style="font-size:16px">${y}년 ${m+1}월</div>
+   <div class="nav"><button onclick="mv(-1)">‹</button><button onclick="mv(1)">›</button></div></div>
+ <div class="bs">
+   <div class="b"><span>수입</span><b style="color:var(--ok)">${won(inc)}</b></div>
+   <div class="b"><span>지출</span><b style="color:var(--warn)">${won(out)}</b></div>
+   <div class="b"><span>합계</span><b>${inc-out>=0?'+':'-'}${won(inc-out)}</b></div>
+ </div>
+ ${out?`
+ <div class="sec">분류별</div>
+ <div class="card"><div style="display:flex;align-items:center;gap:14px">
+   <svg width="102" height="102" viewBox="0 0 36 36" style="transform:rotate(-90deg);flex:0 0 auto">${segs}</svg>
+   <div class="lgd" style="flex:1">${cs.slice(0,6).map((c,i)=>
+     `<div class="r"><i style="background:${COL[i%8]}"></i><span>${c[0]}</span><b>${won(c[1])}</b></div>`).join('')}</div>
+ </div></div>
+ <div class="sec">사람별</div>
+ <div class="card">
+   <div class="prow"><span>${S.names.me}</span><span>${comma(byWho.me)}원 (${Math.round(byWho.me/wp*100)}%)</span></div>
+   <div class="bar"><i style="width:${byWho.me/wp*100}%;background:var(--me)"></i></div>
+   <div class="prow"><span>${S.names.you}</span><span>${comma(byWho.you)}원 (${Math.round(byWho.you/wp*100)}%)</span></div>
+   <div class="bar"><i style="width:${byWho.you/wp*100}%;background:var(--you)"></i></div>
+ </div>
+ <div class="sec">일별 추이</div>
+ <div class="card">
+   <div class="trend">${Array.from({length:last},(_,i)=>
+     `<i class="${byDay[i+1]===mx?'hi':''}" style="height:${(byDay[i+1]||0)/mx*100}%"></i>`).join('')}</div>
+   <div style="font-size:11.5px;color:var(--sub);margin-top:9px;font-weight:600">
+     ${prev?`전월 대비 <b style="color:${diff>0?'var(--warn)':'var(--ok)'}">${diff>0?'▲':'▼'} ${comma(Math.abs(diff))}원 (${Math.abs(diff/prev*100).toFixed(1)}%)</b>`:'전월 자료가 쌓이면 비교해드려요'}
+   </div>
+ </div>`
+ :`<div class="card" style="text-align:center;padding:34px 14px"><div style="font-size:30px">🧾</div>
+   <div style="font-size:13px;color:var(--sub);margin-top:10px;font-weight:600">이번 달 지출 기록이 없어요</div></div>`}`;
+};
+
+V.search=()=>{
+ const t=q.trim();
+ let res=[];
+ if(t){Object.keys(S.days).sort().reverse().forEach(k=>{const o=S.days[k];
+   ['me','you'].forEach(p=>{const d=o.diary[p];
+     if(d&&d.text&&d.text.includes(t))res.push({k,type:'일기 · '+S.names[p],tx:d.text})});
+   o.exp.forEach(e=>{if((e.name||'').includes(t)||e.cat.includes(t))
+     res.push({k,type:'지출 · '+S.names[e.by],tx:`${e.name||e.cat} · ${comma(e.a)}원 · ${e.cat}`})});
+   o.places.forEach(p=>{if(p.n.includes(t))res.push({k,type:'장소',tx:p.n+' '+(p.c||'')})});
+ })}
+ const mark=s=>t?esc(s).replace(new RegExp(t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'g'),m=>`<span class="hl">${m}</span>`):esc(s);
+ return `<div class="card" style="display:flex;align-items:center;gap:9px;padding:12px 14px">
+   <svg viewBox="0 0 24 24" style="width:17px;height:17px;stroke:#A2909A;fill:none;stroke-width:2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+   <input class="in" style="border:0;padding:0;font-size:14px" id="sq" placeholder="일기 · 지출 · 장소 검색" value="${esc(q)}"
+    oninput="q=this.value;renderKeep()"></div>
+ ${t?`<div style="font-size:11.5px;color:var(--sub);padding:2px 4px 8px;font-weight:700">결과 ${res.length}건</div>`:''}
+ ${res.map(r=>{const d=parse(r.k);return `<div class="card" style="cursor:pointer;padding:12px" onclick="openDay('${r.k}')">
+   <div style="font-size:11px;color:var(--sub);margin-bottom:5px;font-weight:700">${r.type} · ${d.getMonth()+1}월 ${d.getDate()}일</div>
+   <div style="font-size:12.5px;line-height:1.6">${mark(r.tx.slice(0,110))}${r.tx.length>110?'…':''}</div></div>`}).join('')}
+ ${t&&!res.length?`<div class="card" style="text-align:center;padding:30px"><div style="font-size:26px">🔍</div>
+   <div style="font-size:12.5px;color:var(--sub);margin-top:9px;font-weight:600">검색 결과가 없어요</div></div>`:''}`;
+};
+
+V.more=()=>{
+ const days=Object.keys(S.days).filter(hasAny).length;
+ const ph=Object.values(S.days).reduce((a,d)=>a+d.photos.length,0);
+ const sd=Math.floor((new Date()-parse(S.since))/86400000);
+ let done=0,total=0;
+ Object.keys(S.days).forEach(k=>{const o=S.days[k];
+   S.checkItems.forEach(c=>{total+=2;if(o.chk.me[c])done++;if(o.chk.you[c])done++})});
+ return `
+ <div class="card" style="text-align:center;padding:24px 14px;background:linear-gradient(135deg,rgba(255,228,238,.85),rgba(233,226,255,.85))">
+   <div style="font-size:11.5px;color:#B08596;font-weight:800">함께한 지</div>
+   <div style="font-size:40px;font-weight:900;letter-spacing:-1.6px;margin:3px 0">${comma(sd)}일</div>
+   <div style="font-size:11.5px;color:#B08596;font-weight:600">${S.since}부터</div>
+ </div>
+ <div class="sec">우리 기록</div>
+ <div class="card">
+   <div class="prow"><span>기록한 날</span><span>${days}일</span></div>
+   <div class="prow"><span>사진</span><span>${ph}장</span></div>
+   <div class="prow"><span>체크 달성률</span><span>${total?Math.round(done/total*100):0}%</span></div>
+   <div class="prow"><span>저장 방식</span><span style="color:${DB.mode==='mem'?'var(--warn)':'var(--ok)'}">${DB.mode==='idb'?'정상 (기기 저장)':DB.mode==='ls'?'정상 (간이 저장)':'저장 안 됨'}</span></div>
+ </div>
+ <div class="sec">메뉴</div>
+ <div class="card" style="padding:6px 14px">
+   ${[['⚙️','설정','이름 · 체크 항목 · 시작일',"go('set')"],
+      ['💾','백업 내보내기','일기 · 지출을 파일로 저장','exportAll()'],
+      ['📥','백업 불러오기','내보낸 파일로 복원','importAll()'],
+      ['📱','홈 화면에 추가','앱처럼 쓰는 방법','howto()']]
+    .map(m=>`<div class="exp" style="cursor:pointer" onclick="${m[3]}">
+      <div class="ic">${m[0]}</div><div class="t"><b>${m[1]}</b><span>${m[2]}</span></div>
+      <div style="color:var(--sub)">›</div></div>`).join('')}
+ </div>`;
+};
+
+V.set=()=>`
+ <div class="sec" style="margin-top:6px">이름</div>
+ <div class="card">
+   <div class="fl">${'내 이름'}</div><input class="in" value="${esc(S.names.me)}" oninput="S.names.me=this.value||'나';save()">
+   <div class="fl">짝꿍 이름</div><input class="in" value="${esc(S.names.you)}" oninput="S.names.you=this.value||'짝꿍';save()">
+   <div class="fl">함께한 시작일</div><input class="in" type="date" value="${S.since}" onchange="S.since=this.value;save()">
+ </div>
+ <div class="sec">매일 체크 항목</div>
+ <div class="card">
+   ${S.checkItems.map((c,i)=>`<div class="exp"><div class="ic">✅</div>
+     <div class="t"><input class="in" style="border:0;padding:4px 0;font-size:13px" value="${esc(c)}" onchange="renameChk(${i},this.value)"></div>
+     <div class="x" onclick="delChk(${i})">×</div></div>`).join('')}
+   <button class="btn g" style="width:100%;margin-top:10px;padding:12px" onclick="addChk()">＋ 항목 추가</button>
+ </div>
+ <div class="sec">사용 중인 프로필</div>
+ <div class="card">
+   <div class="opts">
+     <div class="opt ${S.profile==='me'?'on':''}" onclick="S.profile='me';save();render()">${esc(S.names.me)}</div>
+     <div class="opt ${S.profile==='you'?'on':''}" onclick="S.profile='you';save();render()">${esc(S.names.you)}</div>
+   </div>
+   <div style="font-size:11.5px;color:var(--sub);margin-top:10px;line-height:1.6;font-weight:600">
+     지금은 한 기기에서 두 사람 프로필을 바꿔가며 씁니다. 다음 단계에서 계정 연결을 붙이면 각자 폰에서 동시에 쓰고 자동으로 동기화됩니다.</div>
+ </div>`;
+
+/* ================= 액션 ================= */
+function mv(n){cur=new Date(cur.getFullYear(),cur.getMonth()+n,1);render()}
+function openDay(k){selDate=k;go('day')}
+function setWx(w){const o=D(selDate);o.wx=o.wx===w?null:w;save();render()}
+function setMood(m){const o=D(selDate),p=S.profile;o.diary[p]=o.diary[p]||{};
+ o.diary[p].mood=o.diary[p].mood===m?null:m;save();render()}
+function setText(v){const o=D(selDate),p=S.profile;o.diary[p]=o.diary[p]||{};o.diary[p].text=v;save()}
+function tog(w,c){const o=D(selDate);o.chk[w][c]=!o.chk[w][c];save();render()}
+function delExp(i){const o=D(selDate);o.exp.splice(i,1);save();render()}
+function delPlace(i){const o=D(selDate);o.places.splice(i,1);save();render()}
+async function delPhoto(id){const o=D(selDate);o.photos=o.photos.filter(x=>x!==id);await DB.del('p:'+id);delete PHOTOS[id];save();render()}
+function addPhoto(){document.getElementById('fin').click()}
+document.getElementById('fin').onchange=async e=>{
+ const fs=[...e.target.files]; e.target.value='';
+ if(!fs.length)return; toast('사진 저장 중…');
+ const o=D(selDate);
+ for(const f of fs){const b=await resize(f); const id='ph'+Date.now()+Math.random().toString(36).slice(2,7);
+   const val=(DB.mode==='idb')?b:await blob2url(b);
+   await DB.set('p:'+id,val); o.photos.push(id)}
+ save();render();toast('사진 '+fs.length+'장 저장');
+};
+
+/* 지출 입력 시트 */
+let ex={a:0,cat:null,icon:'📦',pay:'카드',name:'',t:'out',by:'me'};
+function expSheet(){
+ ex={a:0,cat:S.cats[0][0],icon:S.cats[0][1],pay:S.pays[0],name:'',t:'out',by:S.profile};
+ sheet(`<h3>지출 · 수입 입력</h3>
+  <div class="opts" style="margin-bottom:12px">
+    <div class="opt on" id="tOut" onclick="ex.t='out';this.classList.add('on');document.getElementById('tIn').classList.remove('on')">지출</div>
+    <div class="opt" id="tIn" onclick="ex.t='in';this.classList.add('on');document.getElementById('tOut').classList.remove('on')">수입</div>
+  </div>
+  <input class="in amt" id="eA" inputmode="numeric" placeholder="0" oninput="fmtA(this)">
+  <div class="pads">${[1000,5000,10000,30000,50000,'C'].map(v=>
+    `<button onclick="padA('${v}')">${v==='C'?'지우기':'+'+won(v)}</button>`).join('')}</div>
+  <div class="fl">분류</div>
+  <div class="opts" id="eCat">${S.cats.map((c,i)=>
+    `<div class="opt ${i===0?'on':''}" onclick="pick('eCat',this);ex.cat='${c[0]}';ex.icon='${c[1]}'">${c[1]} ${c[0]}</div>`).join('')}</div>
+  <div class="fl">결제수단</div>
+  <div class="opts" id="ePay">${S.pays.map((p,i)=>
+    `<div class="opt ${i===0?'on':''}" onclick="pick('ePay',this);ex.pay='${p}'">${p}</div>`).join('')}</div>
+  <div class="fl">누가</div>
+  <div class="opts" id="eBy">
+    <div class="opt ${S.profile==='me'?'on':''}" onclick="pick('eBy',this);ex.by='me'">${esc(S.names.me)}</div>
+    <div class="opt ${S.profile==='you'?'on':''}" onclick="pick('eBy',this);ex.by='you'">${esc(S.names.you)}</div></div>
+  <div class="fl">내용</div>
+  <input class="in" id="eN" placeholder="예: 저녁 칼국수" oninput="ex.name=this.value">
+  <div class="btns"><button class="btn g" onclick="close_()">취소</button><button class="btn p" onclick="saveExp()">저장</button></div>`);
+ setTimeout(()=>document.getElementById('eA').focus(),120);
+}
+function fmtA(el){const n=+el.value.replace(/[^0-9]/g,'')||0;ex.a=n;el.value=n?comma(n):''}
+function padA(v){if(v==='C'){ex.a=0}else{ex.a+=+v}
+ const el=document.getElementById('eA');el.value=ex.a?comma(ex.a):''}
+function pick(id,el){[...document.getElementById(id).children].forEach(c=>c.classList.remove('on'));el.classList.add('on')}
+function saveExp(){if(!ex.a)return toast('금액을 입력해주세요');
+ D(selDate).exp.push({...ex});save();close_();render();toast('저장했어요')}
+/* 장소 */
+function placeSheet(){
+ sheet(`<h3>오늘 간 곳</h3>
+  <div class="fl">장소 이름</div><input class="in" id="pN" placeholder="예: 뚝섬한강공원">
+  <div class="fl">메모 (지역 · 분류)</div><input class="in" id="pC" placeholder="예: 데이트 · 광진구">
+  <div class="btns"><button class="btn g" onclick="close_()">취소</button><button class="btn p" onclick="savePlace()">저장</button></div>`);
+ setTimeout(()=>document.getElementById('pN').focus(),120);
+}
+function savePlace(){const n=document.getElementById('pN').value.trim();if(!n)return toast('장소를 입력해주세요');
+ D(selDate).places.push({n,c:document.getElementById('pC').value.trim()});save();close_();render();toast('저장했어요')}
+/* 체크 항목 */
+function addChk(){S.checkItems.push('새 항목');save();render()}
+function renameChk(i,v){const old=S.checkItems[i];const nv=v.trim()||old;
+ Object.values(S.days).forEach(d=>{['me','you'].forEach(p=>{if(d.chk[p][old]!==undefined){d.chk[p][nv]=d.chk[p][old];delete d.chk[p][old]}})});
+ S.checkItems[i]=nv;save()}
+function delChk(i){S.checkItems.splice(i,1);save();render()}
+/* 백업 */
+function exportAll(){
+ const b=new Blob([JSON.stringify({v:1,exportedAt:new Date().toISOString(),state:S},null,1)],{type:'application/json'});
+ const a=document.createElement('a');a.href=URL.createObjectURL(b);
+ a.download=`롴이복희다이어리_백업_${key(new Date())}.json`;a.click();
+ toast('사진은 기기에 그대로 있어요');
+}
+function importAll(){
+ const i=document.createElement('input');i.type='file';i.accept='.json';
+ i.onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();
+  r.onload=()=>{try{const j=JSON.parse(r.result);if(!j.state)throw 0;
+    S=Object.assign(JSON.parse(JSON.stringify(DEF)),j.state);save();render();toast('복원했어요')}
+   catch(_){toast('파일을 읽을 수 없어요')}};r.readAsText(f)};
+ i.click();
+}
+function howto(){sheet(`<h3>홈 화면에 추가하기</h3>
+ <div style="font-size:13px;line-height:1.85;color:#6B5A63">
+ 아이폰 — 사파리에서 이 페이지를 열고 하단 공유 버튼 → 홈 화면에 추가<br><br>
+ 안드로이드 — 크롬에서 우측 상단 점 세 개 → 홈 화면에 추가<br><br>
+ 추가하면 주소창 없이 앱처럼 열리고, 알림도 받을 수 있게 됩니다.</div>
+ <div class="btns"><button class="btn p" onclick="close_()">알겠어요</button></div>`)}
+/* 시트 */
+function sheet(html){document.getElementById('sheet').innerHTML=html;document.getElementById('mk').classList.add('on')}
+function close_(){document.getElementById('mk').classList.remove('on')}
+document.getElementById('mk').onclick=e=>{if(e.target.id==='mk')close_()};
+
+/* ================= 렌더 ================= */
+const TABS=[
+ ['cal','캘린더','<rect x="3" y="5" width="18" height="16" rx="4"/><path d="M8 3v4M16 3v4M3 10h18"/>'],
+ ['list','기록','<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>'],
+ ['led','가계부','<path d="M3 7a3 3 0 013-3h9a3 3 0 013 3v10a3 3 0 01-3 3H6a3 3 0 01-3-3z"/><path d="M18 10h3v4h-3"/><path d="M7 9h7M7 13h5"/>'],
+ ['more','더보기','<path d="M12 21s-7.5-4.7-9.4-9A5.4 5.4 0 0112 5.3 5.4 5.4 0 0121.4 12c-1.9 4.3-9.4 9-9.4 9z"/>']];
+const TITLE=()=>({
+ cal:['롴이복희 다이어리',`함께한 지 ${comma(Math.floor((new Date()-parse(S.since))/86400000))}일`],
+ day:(()=>{const d=parse(selDate);return [`${d.getMonth()+1}월 ${d.getDate()}일`,`${DOW[d.getDay()]}요일${selDate===key(new Date())?' · 오늘':''}`]})(),
+ list:['롴이복희 기록',`${Object.keys(S.days).filter(hasAny).length}일 기록됨`],
+ led:['가계부','우리 · 내 · 짝꿍 지출'],
+ more:['더보기',''], set:['설정',''], search:['검색','일기 · 지출 · 장소']
+}[view]||['','']);
+
+function go(v){view=v;render();document.getElementById('scr').scrollTop=0}
+function render(){
+ document.getElementById('scr').innerHTML=V[view]();
+ const t=TITLE();
+ document.getElementById('ttl').textContent=t[0];
+ document.getElementById('stl').textContent=t[1];
+ document.getElementById('bk').style.display=PARENT[view]?'grid':'none';
+ document.getElementById('fab').style.display=(view==='cal'||view==='list'||view==='led')?'grid':'none';
+ const w=document.getElementById('who');
+ w.innerHTML=`<span class="av" style="background:var(--${S.profile})">${esc(S.names[S.profile][0])}</span>`;
+ const act=PARENT[view]||view;
+ document.getElementById('tb').innerHTML=TABS.map(t=>
+  `<button class="${t[0]===act?'on':''}" onclick="go('${t[0]}')"><svg viewBox="0 0 24 24">${t[2]}</svg><span>${t[1]}</span></button>`).join('');
+ hydrate();
+}
+function renderKeep(){ // 검색 입력 유지
+ const el=document.getElementById('sq'), p=el?el.selectionStart:0;
+ render();
+ const n=document.getElementById('sq'); if(n){n.focus();n.setSelectionRange(p,p)}
+}
+document.getElementById('bk').onclick=()=>go(PARENT[view]||'cal');
+document.getElementById('sbtn').onclick=()=>{q='';go('search')};
+document.getElementById('who').onclick=()=>{S.profile=OTHER(S.profile);save();render();toast(S.names[S.profile]+' 으로 전환')};
+document.getElementById('fab').onclick=()=>{
+ if(view==='led'){selDate=key(new Date());expSheet();return}
+ openDay(key(new Date()));
+};
+
+/* 시작 */
+window.onerror=function(m){
+ const el=document.getElementById('scr');
+ if(el&&!el.innerHTML.trim())el.innerHTML='<div class="card" style="text-align:center;padding:30px"><div style="font-size:26px">😢</div>'+
+  '<div style="font-size:13px;margin-top:10px;font-weight:700">화면을 그리지 못했어요</div>'+
+  '<div style="font-size:11px;color:var(--sub);margin-top:8px;word-break:break-all">'+String(m)+'</div></div>';
+};
+(async()=>{
+ try{await load()}catch(_){S=JSON.parse(JSON.stringify(DEF))}
+ try{render()}catch(e){window.onerror(e&&e.message||e)}
+ if(DB.mode==='mem')setTimeout(()=>toast('이 화면에서는 저장이 안 됩니다'),900);
+ else if(!Object.keys(S.days).length)setTimeout(()=>toast('오늘부터 기록해볼까요 💗'),700);
+})();
+</script>
+</body>
+</html>
