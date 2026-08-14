@@ -297,6 +297,8 @@ const DEF={
  ],
  pay:{card:['현대','삼성','KB국민','농협','하나','신한','우리','롯데'],
       point:['카카오페이','네이버페이','상품권','쿠폰','포인트']},
+ incomeCats:[{n:'급여',e:'💰'},{n:'금융소득',e:'🏦'},{n:'부수입',e:'💼'},{n:'환급·지원금',e:'🎟️'},{n:'기타소득',e:'📦'}],
+ favPlaces:[],
  budget:{monthly:0},
  kakaoKey:'50715f43acb2fcfc6566878f03bdf09f',
  v:2,
@@ -318,6 +320,8 @@ function migrate(){
  if(!S.cats||!S.cats.length||Array.isArray(S.cats[0]))S.cats=JSON.parse(JSON.stringify(DEF.cats));
  if(!S.pay||!S.pay.card)S.pay=JSON.parse(JSON.stringify(DEF.pay));
  if(!S.budget)S.budget={monthly:0};
+ if(!S.incomeCats||!S.incomeCats.length)S.incomeCats=JSON.parse(JSON.stringify(DEF.incomeCats));
+ if(!Array.isArray(S.favPlaces))S.favPlaces=[];
  if(!S.kakaoKey)S.kakaoKey=DEF.kakaoKey;
  const M={'카드':['card',''],'현금':['cash',''],'계좌이체':['cash','계좌이체'],'간편결제':['point','']};
  Object.values(S.days).forEach(d=>{
@@ -363,7 +367,8 @@ function hasAny(k){const d=S.days[k];if(!d)return false;
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),1600)}
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const OTHER=p=>p==='me'?'you':'me';
-const catOf=n=>S.cats.find(c=>c.n===n)||S.cats[S.cats.length-1];
+const catsFor=t=>t==='in'?S.incomeCats:S.cats;
+const catOf=(n,t)=>{const L=catsFor(t);return L.find(c=>c.n===n)||(t==='in'?{n:n||'기타소득',e:'💰',subs:[]}:S.cats[S.cats.length-1])};
 const byName=b=>b==='our'?'공용':S.names[b];
 function payLabel(e){
  const p=e.pay||{type:'cash',issuer:''};
@@ -440,8 +445,8 @@ function diagBox(){
 }
 
 /* ================= 상태 ================= */
-let view='cal', cur=new Date(), selDate=key(new Date()), q='', filt='all', ledOpen=null, mapFilt='all';
-const PARENT={day:'cal',search:'cal',set:'more',cards:'set',cats:'set'};
+let view='cal', cur=new Date(), selDate=key(new Date()), q='', filt='all', ledOpen=null, mapFilt='all', catTab='out';
+const PARENT={day:'cal',search:'cal',set:'more',cards:'set',cats:'set',favs:'set'};
 
 /* ================= 화면 ================= */
 const V={};
@@ -531,7 +536,7 @@ V.day=()=>{
  </div>`;
 };
 function expRow(e,k){
- const c=catOf(e.cat);
+ const c=catOf(e.cat,e.t);
  return `<div class="exp" onclick="expSheet('${e.id}','${k}')">
   <div class="ic">${e.icon||c.e}</div>
   <div class="t"><b>${esc(e.name||e.cat)}</b>
@@ -623,7 +628,7 @@ V.led=()=>{
        <div style="font-size:11px;color:var(--sub);font-weight:600;margin-top:3px">하루 평균 ${comma(Math.round(out/last))}원</div>
      </div>
    </div>
-   ${cs.map((c,i)=>{const o2=catOf(c[0]);const open=ledOpen===c[0];
+   ${cs.map((c,i)=>{const o2=catOf(c[0],'out');const open=ledOpen===c[0];
      const subs=Object.entries(bySub).filter(([k2])=>k2.split('||')[0]===c[0]).sort((a,b)=>b[1]-a[1]);
      return `<div class="cbar" onclick="ledOpen=${open?'null':`'${c[0]}'`};render()">
        <div class="prow" style="margin-top:9px"><span>${o2.e} ${esc(c[0])}</span>
@@ -770,8 +775,9 @@ V.set=()=>`
  </div>
  <div class="sec">가계부</div>
  <div class="card" style="padding:6px 14px">
-   ${[['🏷️','카테고리 편집',S.cats.length+'개 대분류',"go('cats')"],
-      ['💳','결제수단 편집','카드 '+S.pay.card.length+'개 · 간편결제 '+S.pay.point.length+'개',"go('cards')"]]
+   ${[['🏷️','카테고리 편집','지출 '+S.cats.length+'개 · 수입 '+S.incomeCats.length+'개',"go('cats')"],
+      ['💳','결제수단 편집','카드 '+S.pay.card.length+'개 · 간편결제 '+S.pay.point.length+'개',"go('cards')"],
+      ['⭐','즐겨찾기 장소',S.favPlaces.length+'곳 등록됨',"go('favs')"]]
     .map(m=>`<div class="exp" style="cursor:pointer" onclick="${m[3]}">
       <div class="ic">${m[0]}</div><div class="t"><b>${m[1]}</b><span>${m[2]}</span></div>
       <div style="color:var(--sub)">›</div></div>`).join('')}
@@ -829,22 +835,100 @@ V.cards=()=>`
  <div class="card"><div style="font-size:11.5px;color:var(--sub);line-height:1.7;font-weight:600">
    현금은 하위 항목이 없습니다. 이름을 바꾸면 이미 입력한 기록의 표시도 함께 바뀝니다.</div></div>`;
 
-V.cats=()=>`
- <div class="sec" style="margin-top:6px">카테고리</div>
- ${S.cats.map((c,i)=>`<div class="card">
-   <div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">
-     <input class="in" style="width:52px;text-align:center;padding:9px 0;font-size:17px" value="${esc(c.e)}" onchange="S.cats[${i}].e=this.value||'📦';save();render()">
+V.cats=()=>{
+ const inc=catTab==='in', L=inc?S.incomeCats:S.cats;
+ return `
+ <div class="seg" style="margin:4px 0 10px">
+   <div class="sg ${!inc?'on':''}" onclick="catTab='out';render()">지출 분류</div>
+   <div class="sg ${inc?'on':''}" onclick="catTab='in';render()">수입 분류</div>
+ </div>
+ ${L.map((c,i)=>`<div class="card">
+   <div style="display:flex;align-items:center;gap:9px">
+     <input class="in" style="width:52px;text-align:center;padding:9px 0;font-size:17px" value="${esc(c.e)}" onchange="setCatEmoji(${i},this.value)">
      <input class="in" style="flex:1" value="${esc(c.n)}" onchange="renameCat(${i},this.value)">
-     <div class="x" onclick="S.cats.splice(${i},1);save();render()">×</div>
+     <div class="x" onclick="delCat(${i})">×</div>
    </div>
-   <div class="fl" style="margin:4px 2px 6px">소분류</div>
+   ${inc?'':`<div class="fl" style="margin:10px 2px 6px">소분류</div>
    <div class="opts">
-     ${c.subs.map((s,j)=>`<div class="opt" onclick="S.cats[${i}].subs.splice(${j},1);save();render()">${esc(s)} ×</div>`).join('')}
-     <div class="opt" style="border-style:dashed" onclick="addSub(${i})">＋ 추가</div>
-   </div>
+     ${(c.subs||[]).map((sb,j2)=>`<div class="opt sm" onclick="S.cats[${i}].subs.splice(${j2},1);save();render()">${esc(sb)} ×</div>`).join('')}
+     <div class="opt sm" style="border-style:dashed" onclick="addSub(${i})">＋ 추가</div>
+   </div>`}
  </div>`).join('')}
- <button class="btn g" style="width:100%;padding:14px" onclick="S.cats.push({n:'새 분류',e:'📦',subs:[]});save();render()">＋ 대분류 추가</button>
+ <button class="btn g" style="width:100%;padding:14px" onclick="addCat()">＋ ${inc?'수입':'지출'} 분류 추가</button>
+ <div class="card" style="margin-top:10px"><div style="font-size:11.5px;color:var(--sub);line-height:1.7;font-weight:600">
+   이름을 바꾸면 이미 입력한 기록의 분류도 함께 바뀝니다. 수입 분류는 소분류 없이 단순하게 씁니다.</div></div>
  <div style="height:14px"></div>`;
+};
+function setCatEmoji(i,v){(catTab==='in'?S.incomeCats:S.cats)[i].e=v||'📦';save();render()}
+function addCat(){
+ if(catTab==='in')S.incomeCats.push({n:'새 수입',e:'💰'});
+ else S.cats.push({n:'새 분류',e:'📦',subs:[]});
+ save();render()}
+function delCat(i){(catTab==='in'?S.incomeCats:S.cats).splice(i,1);save();render()}
+
+V.favs=()=>`
+ <div class="sec" style="margin-top:6px">⭐ 즐겨찾기 장소</div>
+ ${S.favPlaces.length?S.favPlaces.map((p,i)=>`<div class="card" style="padding:12px">
+   <div style="display:flex;align-items:center;gap:10px">
+     <div class="ic" style="width:34px;height:34px;border-radius:12px;background:#FFF6E5;display:grid;place-items:center;font-size:16px;flex:0 0 auto">⭐</div>
+     <div style="flex:1;min-width:0">
+       <input class="in" style="border:0;padding:3px 0;font-size:13px;font-weight:700" value="${esc(p.name)}" onchange="S.favPlaces[${i}].name=this.value.trim()||'장소';save()">
+       <input class="in" style="border:0;padding:0;font-size:11px;color:var(--sub)" value="${esc(p.address||'')}" placeholder="주소 · 메모" onchange="S.favPlaces[${i}].address=this.value;save()">
+     </div>
+     <div class="x" onclick="S.favPlaces.splice(${i},1);save();render()">×</div>
+   </div>
+   ${p.lat?`<div style="font-size:10.5px;color:var(--ok);font-weight:700;margin-top:6px">지도 위치 있음</div>`
+   :`<div style="font-size:10.5px;color:var(--sub);font-weight:700;margin-top:6px">지도 위치 없음 · 검색으로 다시 담으면 지도에 표시됩니다</div>`}
+ </div>`).join('')
+ :`<div class="card" style="text-align:center;padding:30px 14px"><div style="font-size:28px">⭐</div>
+   <div style="font-size:12.5px;color:var(--sub);margin-top:9px;font-weight:600;line-height:1.7">
+   자주 가는 곳을 담아두면 지출 입력이 한 번에 끝나요<br>장소를 고른 뒤 별표를 누르면 담깁니다</div></div>`}
+ <button class="btn p" style="width:100%;padding:14px" onclick="addFavSheet()">＋ 즐겨찾기 직접 추가</button>
+ <div style="height:14px"></div>`;
+
+function addFavSheet(){
+ PRES=[];
+ sheet(`<h3>즐겨찾기 추가</h3>
+  <div style="display:flex;gap:8px">
+   <input class="in" id="fq" placeholder="상호명 검색 (예: 스타벅스 성수)" style="flex:1" onkeydown="if(event.key==='Enter')favSearch()">
+   <button class="btn p" style="flex:0 0 76px;padding:0" onclick="favSearch()">검색</button></div>
+  <div id="fres"></div>
+  <div class="fl">직접 입력</div>
+  <input class="in" id="fmn" placeholder="장소 이름">
+  <input class="in" id="fma" placeholder="주소 · 메모 (선택)" style="margin-top:7px">
+  <div class="btns"><button class="btn g" onclick="close_();render()">닫기</button>
+   <button class="btn p" onclick="favManual()">추가</button></div>`);
+ setTimeout(()=>{const e=document.getElementById('fq');if(e)e.focus()},130);
+}
+function favManual(){
+ const n=document.getElementById('fmn').value.trim();
+ if(!n)return toast('장소 이름을 입력해주세요');
+ S.favPlaces.push({name:n,address:document.getElementById('fma').value.trim(),lat:null,lng:null,pid:''});
+ save();close_();render();toast('⭐ 담았어요');
+}
+function favSearch(){
+ const kw=document.getElementById('fq').value.trim(); if(!kw)return;
+ const box=document.getElementById('fres');
+ if(!S.kakaoKey){box.innerHTML=`<div class="card" style="margin-top:12px;padding:14px;font-size:12px;font-weight:700">
+   지도 검색이 꺼져 있어요. 아래 직접 입력을 써주세요.</div>`;return}
+ box.innerHTML=`<div style="text-align:center;padding:16px;font-size:12px;color:var(--sub);font-weight:700">검색 중…</div>`;
+ loadKakao(ok=>{
+  if(!ok){box.innerHTML=`<div class="card" style="margin-top:12px;padding:14px">${diagBox()}</div>`;return}
+  new kakao.maps.services.Places().keywordSearch(kw,(data,st)=>{
+   if(st!==kakao.maps.services.Status.OK||!data.length){
+    box.innerHTML=`<div style="text-align:center;padding:16px;font-size:12px;color:var(--sub);font-weight:700">결과가 없어요</div>`;return}
+   PRES=data.slice(0,12).map(d=>({name:d.place_name,address:d.road_address_name||d.address_name,
+     lat:+d.y,lng:+d.x,pid:d.id,cat:d.category_group_name||''}));
+   box.innerHTML=`<div class="fl">검색 결과 (탭하면 담깁니다)</div><div style="max-height:36vh;overflow-y:auto">${
+    PRES.map((p,i)=>`<div class="exp" style="cursor:pointer" onclick="favPick(${i})">
+      <div class="ic">📍</div><div class="t"><b>${esc(p.name)}</b><span>${esc(p.address||'')}</span></div>
+      <div style="color:#F0A828;font-size:17px">☆</div></div>`).join('')}</div>`;
+  });
+ });
+}
+function favPick(i){const p=PRES[i];
+ if(S.favPlaces.some(x=>x.name===p.name))return toast('이미 담겨 있어요');
+ S.favPlaces.push(JSON.parse(JSON.stringify(p)));save();toast('⭐ '+p.name+' 담았어요')}
 
 /* ---------- 검색 ---------- */
 V.search=()=>`
@@ -906,8 +990,9 @@ function renameChk(i,v){const old=S.checkItems[i],nv=v.trim()||old;
  Object.values(S.days).forEach(d=>{['me','you'].forEach(p=>{if(d.chk[p][old]!==undefined){d.chk[p][nv]=d.chk[p][old];delete d.chk[p][old]}})});
  S.checkItems[i]=nv;save()}
 function delChk(i){S.checkItems.splice(i,1);save();render()}
-function renameCat(i,v){const old=S.cats[i].n,nv=v.trim()||old;
- allExp(e=>{if(e.cat===old)e.cat=nv});S.cats[i].n=nv;save();render()}
+function renameCat(i,v){const L=catTab==='in'?S.incomeCats:S.cats;const old=L[i].n,nv=v.trim()||old;
+ const tt=catTab==='in'?'in':'out';
+ allExp(e=>{if(e.cat===old&&(e.t||'out')===tt)e.cat=nv});L[i].n=nv;save();render()}
 function addSub(i){
  sheet(`<h3>소분류 추가</h3><div class="fl">${esc(S.cats[i].n)}</div>
   <input class="in" id="nsub" placeholder="예: 배달">
@@ -918,60 +1003,92 @@ function addSub(i){
 
 /* ================= 지출 입력 시트 ================= */
 let EX=null, EXid=null, EXkey=null;
-function newEX(){return {id:uid(),t:'out',a:0,cat:S.cats[0].n,sub:'',icon:S.cats[0].e,
+function newEX(){return {id:uid(),date:EXkey,t:'out',a:0,cat:S.cats[0].n,sub:'',icon:S.cats[0].e,
  by:S.profile,pay:{type:'card',issuer:S.pay.card[0]||''},place:null,name:'',at:Date.now()}}
 function expSheet(id,k){
  EXkey=k||selDate; EXid=id||null;
  if(id){const f=(D(EXkey).exp||[]).find(x=>x.id===id);EX=f?JSON.parse(JSON.stringify(f)):newEX()}
  else EX=newEX();
+ EX.date=EX.date||EXkey;
  drawEX();
 }
+function fixCat(){const L=catsFor(EX.t);
+ if(!L.some(x=>x.n===EX.cat)){EX.cat=L[0].n;EX.icon=L[0].e;EX.sub=''}}
 function drawEX(){
- const c=catOf(EX.cat);
+ fixCat();
+ const inc=EX.t==='in';
+ const CL=catsFor(EX.t), c=catOf(EX.cat,EX.t), subs=(c.subs||[]);
  const issuers=EX.pay.type==='card'?S.pay.card:EX.pay.type==='point'?S.pay.point:[];
- sheet(`<h3>${EXid?'지출 수정':'지출 · 수입 입력'}</h3>
+ const isFav=EX.place&&S.favPlaces.some(p=>p.name===EX.place.name);
+ sheet(`<h3>${EXid?(inc?'수입 수정':'지출 수정'):'지출 · 수입 입력'}</h3>
   <div class="seg">
-    <div class="sg ${EX.t==='out'?'on':''}" onclick="EX.t='out';drawEX()">지출</div>
-    <div class="sg ${EX.t==='in'?'on':''}" onclick="EX.t='in';drawEX()">수입</div>
+    <div class="sg ${!inc?'on':''}" onclick="EX.t='out';drawEX()">지출</div>
+    <div class="sg ${inc?'on':''}" onclick="EX.t='in';drawEX()">수입</div>
   </div>
+  <div class="fl">날짜</div>
+  <div style="display:flex;gap:7px">
+    <input class="in" type="date" style="flex:1" value="${EX.date}" onchange="EX.date=this.value||EX.date;drawEX()">
+    <button class="btn g" style="flex:0 0 66px;padding:0;font-size:12.5px" onclick="EX.date=key(new Date());drawEX()">오늘</button>
+  </div>
+  <div style="font-size:11px;color:var(--sub);font-weight:600;margin:6px 2px 0">${dateLabel(EX.date)}</div>
+
   <input class="in amt" id="eA" inputmode="numeric" placeholder="0" value="${EX.a?comma(EX.a):''}" oninput="fmtA(this)">
   <div class="pads">${[1000,5000,10000,30000,50000,'C'].map(v=>`<button onclick="padA('${v}')">${v==='C'?'지우기':'+'+won(v)}</button>`).join('')}</div>
 
-  <div class="fl">카테고리</div>
-  <div class="opts">${S.cats.map((x,i)=>`<div class="opt ${x.n===EX.cat?'on':''}" onclick="pickCat(${i})">${x.e} ${esc(x.n)}</div>`).join('')}</div>
-  ${c.subs.length?`<div class="opts" style="margin-top:7px">
-    ${c.subs.map(s=>`<div class="opt sm ${EX.sub===s?'on':''}" onclick="EX.sub=(EX.sub==='${esc(s)}'?'':'${esc(s)}');drawEX()">${esc(s)}</div>`).join('')}</div>`:''}
+  <div class="fl">${inc?'수입 분류':'카테고리'}</div>
+  <div class="opts">${CL.map((x,i2)=>`<div class="opt ${x.n===EX.cat?'on':''}" onclick="pickCat(${i2})">${x.e} ${esc(x.n)}</div>`).join('')}
+    <div class="opt sm" style="border-style:dashed" onclick="catTab='${inc?'in':'out'}';go('cats');close_()">＋ 편집</div></div>
+  ${subs.length?`<div class="opts" style="margin-top:7px">
+    ${subs.map((sb,k2)=>`<div class="opt sm ${EX.sub===sb?'on':''}" onclick="pickSub(${k2})">${esc(sb)}</div>`).join('')}</div>`:''}
 
-  <div class="fl">결제수단</div>
+  ${inc?'':`<div class="fl">결제수단</div>
   <div class="seg">${PAYT.map(p=>`<div class="sg ${EX.pay.type===p[0]?'on':''}" onclick="pickPay('${p[0]}')">${p[2]} ${p[1]}</div>`).join('')}</div>
   ${issuers.length?`<div class="opts" style="margin-top:8px">
-    ${issuers.map(x=>`<div class="opt sm ${EX.pay.issuer===x?'on':''}" onclick="EX.pay.issuer='${esc(x)}';drawEX()">${esc(x)}</div>`).join('')}
+    ${issuers.map(x=>`<div class="opt sm ${EX.pay.issuer===x?'on':''}" onclick="pickIssuer('${esc(x)}')">${esc(x)}</div>`).join('')}
     <div class="opt sm" style="border-style:dashed" onclick="go('cards');close_()">＋ 편집</div></div>`
    :(EX.pay.type==='cash'?`<div class="opts" style="margin-top:8px">
-    ${['','계좌이체'].map(x=>`<div class="opt sm ${EX.pay.issuer===x?'on':''}" onclick="EX.pay.issuer='${x}';drawEX()">${x||'현금'}</div>`).join('')}</div>`:'')}
+    ${['','계좌이체'].map(x=>`<div class="opt sm ${EX.pay.issuer===x?'on':''}" onclick="pickIssuer('${x}')">${x||'현금'}</div>`).join('')}</div>`:'')}`}
 
-  <div class="fl">누가 결제했나요</div>
+  <div class="fl">${inc?'누가 받았나요':'누가 결제했나요'}</div>
   <div class="seg">
     <div class="sg ${EX.by==='me'?'on me':''}" onclick="EX.by='me';drawEX()">${esc(S.names.me)}</div>
     <div class="sg ${EX.by==='you'?'on you':''}" onclick="EX.by='you';drawEX()">${esc(S.names.you)}</div>
     <div class="sg ${EX.by==='our'?'on our':''}" onclick="EX.by='our';drawEX()">공용</div>
   </div>
 
-  <div class="fl">어디서 썼나요</div>
+  <div class="fl">${inc?'어디서 받았나요 (선택)':'어디서 썼나요'}</div>
   ${EX.place?`<div class="plsel"><div class="ic">📍</div>
      <div class="t"><b>${esc(EX.place.name)}</b><span>${esc(EX.place.address||'좌표 없음')}</span></div>
+     <div class="x" style="color:${isFav?'#F0A828':'#D9C0CB'};font-size:19px" onclick="toggleFav()">${isFav?'★':'☆'}</div>
      <div class="x" onclick="EX.place=null;drawEX()">×</div></div>`
    :`<button class="btn g" style="width:100%;padding:13px" onclick="placeSheet()">🔎 장소 검색해서 넣기</button>`}
+  ${S.favPlaces.length&&!EX.place?`<div class="opts" style="margin-top:8px">
+    ${S.favPlaces.slice(0,6).map((p,i3)=>`<div class="opt sm" onclick="useFav(${i3})">⭐ ${esc(p.name)}</div>`).join('')}</div>`:''}
 
   <div class="fl">내용</div>
-  <input class="in" id="eN" placeholder="예: 저녁 칼국수" value="${esc(EX.name)}" oninput="EX.name=this.value">
+  <input class="in" id="eN" placeholder="${inc?'예: 8월 급여':'예: 저녁 칼국수'}" value="${esc(EX.name)}" oninput="EX.name=this.value">
 
   <div class="btns">
    ${EXid?`<button class="btn g" onclick="delExp('${EXid}','${EXkey}');close_()">삭제</button>`:`<button class="btn g" onclick="close_()">취소</button>`}
    <button class="btn p" onclick="saveExp()">저장</button></div>`);
  if(!EXid)setTimeout(()=>{const a=document.getElementById('eA');if(a)a.focus()},130);
 }
-function pickCat(i){EX.cat=S.cats[i].n;EX.icon=S.cats[i].e;EX.sub='';drawEX()}
+function dateLabel(k){const d=parse(k),t=key(new Date());
+ const diff=Math.round((parse(t)-d)/86400000);
+ const w=DOW[d.getDay()]+'요일';
+ return `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 ${w}`+(diff===0?' · 오늘':diff===1?' · 어제':diff>1?` · ${diff}일 전`:diff<0?` · ${-diff}일 뒤`:'');
+}
+function pickSub(k2){const subs=catOf(EX.cat,EX.t).subs||[];EX.sub=(EX.sub===subs[k2]?'':subs[k2]);drawEX()}
+function pickIssuer(v){EX.pay.issuer=v;drawEX()}
+function useFav(i){EX.place=JSON.parse(JSON.stringify(S.favPlaces[i]));drawEX()}
+function toggleFav(){
+ if(!EX.place)return;
+ const i=S.favPlaces.findIndex(p=>p.name===EX.place.name);
+ if(i>=0){S.favPlaces.splice(i,1);toast('즐겨찾기에서 뺐어요')}
+ else{S.favPlaces.push(JSON.parse(JSON.stringify(EX.place)));toast('즐겨찾기에 담았어요')}
+ save();drawEX();
+}
+function pickCat(i){const L=catsFor(EX.t);EX.cat=L[i].n;EX.icon=L[i].e;EX.sub='';drawEX()}
 function pickPay(t){EX.pay.type=t;
  EX.pay.issuer = t==='card'?(S.pay.card[0]||''): t==='point'?(S.pay.point[0]||''):'';
  drawEX()}
@@ -979,12 +1096,16 @@ function fmtA(el){const n=+el.value.replace(/[^0-9]/g,'')||0;EX.a=n;el.value=n?c
 function padA(v){if(v==='C')EX.a=0;else EX.a+=+v;const el=document.getElementById('eA');if(el)el.value=EX.a?comma(EX.a):''}
 function saveExp(){
  if(!EX.a)return toast('금액을 입력해주세요');
- const o=D(EXkey);
- if(EXid){const i=o.exp.findIndex(x=>x.id===EXid); if(i>=0)o.exp[i]=EX; else o.exp.push(EX)}
- else o.exp.push(EX);
+ const nk=EX.date||EXkey;
+ if(EXid){const o0=D(EXkey);o0.exp=o0.exp.filter(x=>x.id!==EXid)}
+ const o=D(nk);
+ o.exp.push(EX);
  if(EX.place&&EX.place.name&&!o.places.some(p=>(p.n||p.name)===EX.place.name))
    o.places.push({n:EX.place.name,c:EX.place.address||''});
- save();close_();render();toast(EXid?'수정했어요':'저장했어요');
+ const moved=EXid&&nk!==EXkey;
+ if(view==='day')selDate=nk;
+ save();close_();render();
+ toast(moved?`${nk.slice(5).replace('-','/')}로 옮겼어요`:(EXid?'수정했어요':'저장했어요'));
 }
 
 /* ---------- 장소 검색 시트 ---------- */
@@ -996,6 +1117,8 @@ function placeSheet(){
   <div style="display:flex;gap:8px">
    <input class="in" id="pq" placeholder="상호명이나 주소" style="flex:1" onkeydown="if(event.key==='Enter')doSearch()">
    <button class="btn p" style="flex:0 0 76px;padding:0" onclick="doSearch()">검색</button></div>
+  ${S.favPlaces.length?`<div class="fl">⭐ 즐겨찾기 <span style="color:var(--sub);font-weight:600" onclick="go('favs');close_()">편집</span></div><div class="opts">
+    ${S.favPlaces.map((p,i)=>`<div class="opt sm" onclick="useFav(${i})">⭐ ${esc(p.name)}</div>`).join('')}</div>`:''}
   ${rec.length?`<div class="fl">최근 쓴 곳</div><div class="opts">
     ${rec.map((p,i)=>`<div class="opt sm" onclick="useRecent(${i})">📍 ${esc(p.name)}</div>`).join('')}</div>`:''}
   <div id="pres"></div>
@@ -1034,11 +1157,14 @@ function doSearch(){
    box.innerHTML=`<div class="fl">검색 결과</div><div style="max-height:38vh;overflow-y:auto">${
     PRES.map((p,i)=>`<div class="exp" style="cursor:pointer" onclick="usePlace(${i})">
       <div class="ic">📍</div><div class="t"><b>${esc(p.name)}</b><span>${esc(p.address||'')}${p.cat?' · '+esc(p.cat):''}</span></div>
-      <div style="color:var(--sub)">›</div></div>`).join('')}</div>`;
+      <div class="x" style="color:#F0A828;font-size:17px" onclick="event.stopPropagation();favFromSearch(${i})">☆</div></div>`).join('')}</div>`;
   });
  });
 }
 function usePlace(i){EX.place=PRES[i];drawEX()}
+function favFromSearch(i){const p=PRES[i];
+ if(S.favPlaces.some(x=>x.name===p.name))return toast('이미 즐겨찾기에 있어요');
+ S.favPlaces.push(JSON.parse(JSON.stringify(p)));save();toast('⭐ '+p.name+' 담았어요')}
 /* 지출 없이 장소만 */
 function placeOnly(){
  sheet(`<h3>오늘 간 곳</h3>
@@ -1090,7 +1216,7 @@ const TITLE=()=>({
  list:['롴이복희 기록',`${Object.keys(S.days).filter(hasAny).length}일 기록됨`],
  led:['가계부','나 · 짝꿍 · 공용'],
  map:['방문 지도','어디서 얼마를 썼나'],
- more:['더보기',''], set:['설정',''], cards:['결제수단',''], cats:['카테고리',''],
+ more:['더보기',''], set:['설정',''], cards:['결제수단',''], cats:['카테고리','지출 · 수입 분류'], favs:['즐겨찾기 장소','자주 가는 곳'],
  search:['검색','일기 · 지출 · 장소']
 }[view]||['','']);
 
