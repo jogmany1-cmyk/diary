@@ -44,6 +44,17 @@ body{
 /* ---- scroll ---- */
 .scr{flex:1;overflow-y:auto;padding:4px 14px 96px;-webkit-overflow-scrolling:touch}
 .scr::-webkit-scrollbar{width:0}
+/* PC(마우스)에서는 스크롤바 표시 */
+@media (hover:hover) and (pointer:fine){
+ .scr{scrollbar-width:thin;scrollbar-color:#E7C9D8 transparent}
+ .scr::-webkit-scrollbar{width:9px}
+ .scr::-webkit-scrollbar-track{background:transparent}
+ .scr::-webkit-scrollbar-thumb{background:#E9CDDB;border-radius:9px;border:2px solid transparent;background-clip:padding-box}
+ .scr::-webkit-scrollbar-thumb:hover{background:#DFB6CA;background-clip:padding-box}
+ .sheet{scrollbar-width:thin;scrollbar-color:#E7C9D8 transparent}
+ .sheet::-webkit-scrollbar{width:9px}
+ .sheet::-webkit-scrollbar-thumb{background:#E9CDDB;border-radius:9px;border:2px solid transparent;background-clip:padding-box}
+}
 .card{background:var(--card);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.7);
  border-radius:var(--r);padding:14px;margin-bottom:10px;box-shadow:0 3px 14px rgba(190,140,165,.09)}
 .sec{margin:16px 2px 8px;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:space-between}
