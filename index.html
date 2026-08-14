@@ -298,7 +298,7 @@ const DEF={
  pay:{card:['현대','삼성','KB국민','농협','하나','신한','우리','롯데'],
       point:['카카오페이','네이버페이','상품권','쿠폰','포인트']},
  budget:{monthly:0},
- kakaoKey:'',
+ kakaoKey:'50715f43acb2fcfc6566878f03bdf09f',
  v:2,
  days:{}
 };
@@ -318,7 +318,7 @@ function migrate(){
  if(!S.cats||!S.cats.length||Array.isArray(S.cats[0]))S.cats=JSON.parse(JSON.stringify(DEF.cats));
  if(!S.pay||!S.pay.card)S.pay=JSON.parse(JSON.stringify(DEF.pay));
  if(!S.budget)S.budget={monthly:0};
- if(S.kakaoKey===undefined)S.kakaoKey='';
+ if(!S.kakaoKey)S.kakaoKey=DEF.kakaoKey;
  const M={'카드':['card',''],'현금':['cash',''],'계좌이체':['cash','계좌이체'],'간편결제':['point','']};
  Object.values(S.days).forEach(d=>{
   (d.exp||[]).forEach(e=>{
