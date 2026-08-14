@@ -412,16 +412,31 @@ function resize(file){return new Promise(res=>{
 
 /* ================= 카카오맵 ================= */
 let KSTATE='idle'; // idle | loading | ready | fail
+let KERR='';
 function loadKakao(cb){
  if(KSTATE==='ready')return cb(true);
- if(!S.kakaoKey){KSTATE='fail';return cb(false)}
- if(KSTATE==='loading'){setTimeout(()=>cb(KSTATE==='ready'),900);return}
- KSTATE='loading';
+ if(!S.kakaoKey){KSTATE='fail';KERR='앱키가 비어 있습니다';return cb(false)}
+ if(location.protocol==='file:'){KSTATE='fail';KERR='파일로 직접 열었습니다 (file://). 인터넷 주소로 열어야 지도가 동작합니다';return cb(false)}
+ if(KSTATE==='loading'){setTimeout(()=>cb(KSTATE==='ready'),1200);return}
+ KSTATE='loading';KERR='';
  const s=document.createElement('script');
  s.src='https://dapi.kakao.com/v2/maps/sdk.js?appkey='+encodeURIComponent(S.kakaoKey)+'&libraries=services&autoload=false';
- s.onload=()=>{try{kakao.maps.load(()=>{KSTATE='ready';cb(true)})}catch(_){KSTATE='fail';cb(false)}};
- s.onerror=()=>{KSTATE='fail';cb(false)};
+ s.onload=()=>{
+   if(!window.kakao||!window.kakao.maps){KSTATE='fail';KERR='SDK는 받았지만 초기화되지 않았습니다 (도메인 미등록일 가능성)';return cb(false)}
+   try{kakao.maps.load(()=>{KSTATE='ready';cb(true)})}catch(e){KSTATE='fail';KERR='초기화 실패: '+(e&&e.message||e);cb(false)}};
+ s.onerror=()=>{KSTATE='fail';KERR='SDK 파일을 받지 못했습니다 (앱키가 틀렸거나 도메인 미등록)';cb(false)};
  document.head.appendChild(s);
+}
+function diagBox(){
+ const o=location.origin, ok=(o==='https://jogmany1-cmyk.github.io');
+ return `<div style="margin-top:12px;padding:11px 12px;background:rgba(255,255,255,.75);border-radius:14px;text-align:left">
+  <div style="font-size:10.5px;color:var(--sub);font-weight:800;margin-bottom:5px">진단</div>
+  <div style="font-size:11px;line-height:1.75;word-break:break-all">
+   현재 주소 <b style="color:${ok?'var(--ok)':'var(--warn)'}">${esc(o||'file://')}</b><br>
+   카카오에 등록해야 할 주소 <b>https://jogmany1-cmyk.github.io</b><br>
+   앱키 뒤 6자리 <b>${esc((S.kakaoKey||'').slice(-6)||'없음')}</b><br>
+   ${KERR?`사유 <b style="color:var(--warn)">${esc(KERR)}</b>`:''}
+  </div></div>`;
 }
 
 /* ================= 상태 ================= */
@@ -675,10 +690,12 @@ let MAPOBJ=null;
 function drawMap(list){
  const box=document.getElementById('mapbox'); if(!box||!S.kakaoKey)return;
  loadKakao(ok=>{
-  if(!ok){box.innerHTML=`<div class="mguide"><div style="font-size:26px">😢</div>
+  if(!ok){box.innerHTML=`<div class="mguide" style="overflow-y:auto"><div style="font-size:26px">😢</div>
     <div style="font-size:12.5px;font-weight:800;margin-top:8px">지도를 불러오지 못했어요</div>
-    <div style="font-size:11px;color:var(--sub);margin-top:6px;font-weight:600">앱키가 맞는지, 사이트 도메인을 등록했는지 확인해주세요</div>
-    <button class="btn g" style="margin-top:12px;padding:11px 20px" onclick="go('set')">설정 열기</button></div>`;return}
+    ${diagBox()}
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn g" style="flex:0 0 auto;width:auto;padding:11px 18px" onclick="KSTATE='idle';render()">다시 시도</button>
+      <button class="btn g" style="flex:0 0 auto;width:auto;padding:11px 18px" onclick="go('set')">설정 열기</button></div></div>`;return}
   box.innerHTML='';
   const c=list.length?new kakao.maps.LatLng(list[0].lat,list[0].lng):new kakao.maps.LatLng(37.5665,126.9780);
   const map=new kakao.maps.Map(box,{center:c,level:list.length?6:8});
@@ -991,8 +1008,8 @@ function doSearch(){
    설정에서 카카오 앱키를 넣으면 상호명으로 검색됩니다. 지금은 아래 직접 입력을 써주세요.</div></div>`;return}
  box.innerHTML=`<div style="text-align:center;padding:16px;font-size:12px;color:var(--sub);font-weight:700">검색 중…</div>`;
  loadKakao(ok=>{
-  if(!ok){box.innerHTML=`<div class="card" style="margin-top:12px;padding:14px;font-size:12px;font-weight:700">
-    지도를 불러오지 못했어요. 앱키와 도메인 등록을 확인해주세요.</div>`;return}
+  if(!ok){box.innerHTML=`<div class="card" style="margin-top:12px;padding:14px">
+    <div style="font-size:12.5px;font-weight:800">지도를 불러오지 못했어요</div>${diagBox()}</div>`;return}
   new kakao.maps.services.Places().keywordSearch(kw,(data,st)=>{
    if(st!==kakao.maps.services.Status.OK||!data.length){
     box.innerHTML=`<div style="text-align:center;padding:16px;font-size:12px;color:var(--sub);font-weight:700">결과가 없어요. 직접 입력해보세요</div>`;return}
