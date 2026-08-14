@@ -271,6 +271,7 @@ textarea::placeholder{color:#CDB9C4}
     <div><h1 id="ttl">롴이복희 다이어리</h1><div class="sub" id="stl"></div></div>
     <div class="sp"></div>
     <button class="ib" id="who"></button>
+    <div id="syncdot" style="display:none;position:absolute;top:calc(env(safe-area-inset-top) + 12px);right:14px;width:8px;height:8px;border-radius:50%;background:var(--ok);z-index:5"></div>
     <button class="ib" id="sbtn"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></button>
   </div>
   <div class="scr" id="scr"></div>
@@ -346,6 +347,7 @@ const DEF={
       point:['카카오페이','네이버페이','상품권','쿠폰','포인트']},
  incomeCats:[{n:'급여',e:'💰'},{n:'금융소득',e:'🏦'},{n:'부수입',e:'💼'},{n:'환급·지원금',e:'🎟️'},{n:'기타소득',e:'📦'}],
  favPlaces:[],
+ sync:null,
  budget:{monthly:0},
  kakaoKey:'50715f43acb2fcfc6566878f03bdf09f',
  v:2,
@@ -369,6 +371,8 @@ function migrate(){
  if(!S.budget)S.budget={monthly:0};
  if(!S.incomeCats||!S.incomeCats.length)S.incomeCats=JSON.parse(JSON.stringify(DEF.incomeCats));
  if(!Array.isArray(S.favPlaces))S.favPlaces=[];
+ if(!S.sync||typeof S.sync!=='object')S.sync=defSync();
+ if(!S.sync.sig)S.sync.sig={};
  if(!S.kakaoKey)S.kakaoKey=DEF.kakaoKey;
  const M={'카드':['card',''],'현금':['cash',''],'계좌이체':['cash','계좌이체'],'간편결제':['point','']};
  Object.values(S.days).forEach(d=>{
@@ -385,7 +389,7 @@ function migrate(){
  if(S.v!==2){S.v=2;save()}
 }
 let saveT=null;
-function save(){clearTimeout(saveT);saveT=setTimeout(()=>{try{DB.set('state',JSON.stringify(S))}catch(_){}},180)}
+function save(){clearTimeout(saveT);saveT=setTimeout(()=>{try{DB.set('state',JSON.stringify(S))}catch(_){}},180);try{syncSoon()}catch(_){}}
 
 /* ================= 유틸 ================= */
 const WX=['☀️','🌤️','☁️','🌧️','⛈️','🌨️','🌫️','🌈'];
@@ -448,7 +452,9 @@ function recentPlaces(n){
 /* 사진 */
 async function pURL(id){
  if(PHOTOS[id])return PHOTOS[id];
- const b=await DB.get('p:'+id); if(!b)return null;
+ let b=await DB.get('p:'+id);
+ if(!b&&typeof syncOn==='function'&&syncOn()){await pullPhoto(id);b=await DB.get('p:'+id)}
+ if(!b)return null;
  const u=(typeof b==='string')?b:URL.createObjectURL(b); PHOTOS[id]=u; return u;
 }
 async function hydrate(){
@@ -493,7 +499,7 @@ function diagBox(){
 
 /* ================= 상태 ================= */
 let view='cal', cur=new Date(), selDate=key(new Date()), q='', filt='all', ledOpen=null, mapFilt='all', catTab='out';
-const PARENT={day:'cal',search:'cal',set:'more',cards:'set',cats:'set',favs:'set'};
+const PARENT={day:'cal',search:'cal',set:'more',cards:'set',cats:'set',favs:'set',sync:'set'};
 
 /* ================= 화면 ================= */
 const V={};
@@ -826,7 +832,8 @@ V.set=()=>`
  <div class="card" style="padding:6px 14px">
    ${[['🏷️','카테고리 편집','지출 '+S.cats.length+'개 · 수입 '+S.incomeCats.length+'개',"go('cats')"],
       ['💳','결제수단 편집','카드 '+S.pay.card.length+'개 · 간편결제 '+S.pay.point.length+'개',"go('cards')"],
-      ['⭐','즐겨찾기 장소',S.favPlaces.length+'곳 등록됨',"go('favs')"]]
+      ['⭐','즐겨찾기 장소',S.favPlaces.length+'곳 등록됨',"go('favs')"],
+      ['🔗','계정 연결',(S.sync&&S.sync.spaceId)?('연결됨 · 코드 '+(S.sync.code||'')):'두 사람이 함께 쓰려면 여기',"go('sync')"]]
     .map(m=>`<div class="exp" style="cursor:pointer" onclick="${m[3]}">
       <div class="ic">${m[0]}</div><div class="t"><b>${m[1]}</b><span>${m[2]}</span></div>
       <div style="color:var(--sub)">›</div></div>`).join('')}
@@ -1265,7 +1272,7 @@ const TITLE=()=>({
  list:['롴이복희 기록',`${Object.keys(S.days).filter(hasAny).length}일 기록됨`],
  led:['가계부','나 · 짝꿍 · 공용'],
  map:['방문 지도','어디서 얼마를 썼나'],
- more:['더보기',''], set:['설정',''], cards:['결제수단',''], cats:['카테고리','지출 · 수입 분류'], favs:['즐겨찾기 장소','자주 가는 곳'],
+ more:['더보기',''], set:['설정',''], sync:['계정 연결','두 사람 기록 합치기'], cards:['결제수단',''], cats:['카테고리','지출 · 수입 분류'], favs:['즐겨찾기 장소','자주 가는 곳'],
  search:['검색','일기 · 지출 · 장소']
 }[view]||['','']);
 
@@ -1303,6 +1310,7 @@ function render(){
   TABS.map(t2=>`<button class="${t2[0]===act?'on':''}" onclick="go('${t2[0]}')"><svg viewBox="0 0 24 24">${t2[2]}</svg>${t2[1]}</button>`).join('')+
   `<button onclick="q='';go('search')"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>검색</button>`+
   `<button onclick="go('set')"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M4 12h2M18 12h2M12 4v2M12 18v2M6.5 6.5l1.4 1.4M16.1 16.1l1.4 1.4M17.5 6.5l-1.4 1.4M7.9 16.1l-1.4 1.4"/></svg>설정</button>`;
+ try{paintSync()}catch(_){}
  hydrate();
  if(view==='search'){drawSearch();const el=document.getElementById('sq');if(el)el.focus()}
 }
@@ -1316,6 +1324,282 @@ document.getElementById('fab').onclick=()=>{
  openDay(key(new Date()));
 };
 
+
+/* ================= 계정 연결 · 동기화 ================= */
+const SB_URL='https://uaslnjiokkhhrdsigjte.supabase.co';
+const SB_KEY='sb_publishable_DZA9q6L5Ez_R-QIHD-EnHQ_sz0dEyDd';
+let SB=null, SBSTATE='idle', SYNCING=false, SYNCERR='', SESS=null, PHOTO_WANT=new Set();
+
+function defSync(){return {email:null,spaceId:null,code:null,slot:'me',cursor:null,setCursor:null,setSig:'',sig:{},last:null}}
+function syncOn(){return !!(SB&&SESS&&S.sync&&S.sync.spaceId)}
+
+function loadSB(cb){
+ if(window.supabase&&window.supabase.createClient)return cb(true);
+ if(SBSTATE==='loading'){setTimeout(()=>cb(!!(window.supabase&&window.supabase.createClient)),1200);return}
+ SBSTATE='loading';
+ const s=document.createElement('script');
+ s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+ s.onload=()=>{SBSTATE='ready';cb(!!(window.supabase&&window.supabase.createClient))};
+ s.onerror=()=>{SBSTATE='fail';SYNCERR='네트워크에서 동기화 모듈을 받지 못했어요';cb(false)};
+ document.head.appendChild(s);
+}
+async function initSB(){
+ return new Promise(res=>loadSB(async ok=>{
+  if(!ok)return res(false);
+  try{
+   SB=window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
+   const {data}=await SB.auth.getSession();
+   SESS=data&&data.session||null;
+   SB.auth.onAuthStateChange((_e,ss)=>{SESS=ss||null});
+   res(true);
+  }catch(e){SYNCERR=String(e.message||e);res(false)}
+ }));
+}
+
+/* ---- 로컬 기록 → 서버 레코드 ---- */
+function buildRecords(){
+ const out={};
+ Object.keys(S.days).forEach(day=>{
+  const d=S.days[day]; if(!d)return;
+  if(d.wx)out['dm_'+day]={id:'dm_'+day,kind:'daymeta',day,slot:null,data:{wx:d.wx}};
+  ['me','you'].forEach(sl=>{const x=(d.diary||{})[sl];
+   if(x&&(x.text||x.mood))out[`di_${day}_${sl}`]={id:`di_${day}_${sl}`,kind:'diary',day,slot:sl,data:{text:x.text||'',mood:x.mood||null}}});
+  (d.exp||[]).forEach(e=>{if(e&&e.id)out[e.id]={id:e.id,kind:'expense',day,slot:e.by||'me',data:e}});
+  ['me','you'].forEach(sl=>{const c=(d.chk||{})[sl]||{};
+   const on=Object.keys(c).filter(k=>c[k]);
+   if(on.length)out[`ck_${day}_${sl}`]={id:`ck_${day}_${sl}`,kind:'check',day,slot:sl,data:{items:on}}});
+  if((d.places||[]).length)out['pp_'+day]={id:'pp_'+day,kind:'places',day,slot:null,data:{list:d.places}};
+  (d.photos||[]).forEach(pid=>{out[pid]={id:pid,kind:'photo',day,slot:null,data:{}}});
+ });
+ return out;
+}
+const sigOf=r=>JSON.stringify(r.data);
+
+function applyRecord(r){
+ if(r.deleted)return removeRecord(r);
+ const d=D(r.day);
+ if(r.kind==='daymeta')d.wx=(r.data||{}).wx||null;
+ else if(r.kind==='diary'){d.diary[r.slot]=d.diary[r.slot]||{};d.diary[r.slot].text=r.data.text||'';d.diary[r.slot].mood=r.data.mood||null}
+ else if(r.kind==='expense'){const e=Object.assign({},r.data);e.id=r.id;
+  const i=d.exp.findIndex(x=>x.id===r.id); if(i>=0)d.exp[i]=e; else d.exp.push(e)}
+ else if(r.kind==='check'){const set={};(r.data.items||[]).forEach(k=>set[k]=true);d.chk[r.slot]=set}
+ else if(r.kind==='places')d.places=r.data.list||[];
+ else if(r.kind==='photo'){if(!d.photos.includes(r.id))d.photos.push(r.id);PHOTO_WANT.add(r.id)}
+}
+function removeRecord(r){
+ const d=S.days[r.day]; if(!d)return;
+ if(r.kind==='expense')d.exp=(d.exp||[]).filter(x=>x.id!==r.id);
+ else if(r.kind==='photo')d.photos=(d.photos||[]).filter(x=>x!==r.id);
+ else if(r.kind==='diary'){if(d.diary[r.slot])d.diary[r.slot]={}}
+ else if(r.kind==='daymeta')d.wx=null;
+ else if(r.kind==='check')d.chk[r.slot]={};
+ else if(r.kind==='places')d.places=[];
+}
+const SETKEYS=['names','since','checkItems','cats','incomeCats','pay','budget','favPlaces'];
+function pickSettings(){const o={};SETKEYS.forEach(k=>o[k]=S[k]);return o}
+function applySettings(o){if(!o)return;SETKEYS.forEach(k=>{if(o[k]!==undefined)S[k]=o[k]})}
+
+/* ---- 사진 ---- */
+async function blobOf(id){
+ const v=await DB.get('p:'+id); if(!v)return null;
+ if(typeof v!=='string')return v;
+ const res=await fetch(v); return await res.blob();
+}
+async function pullPhoto(id){
+ try{
+  const {data,error}=await SB.storage.from('photos').download(`${S.sync.spaceId}/${id}.jpg`);
+  if(error||!data)return false;
+  await DB.set('p:'+id,(DB.mode==='idb')?data:await blob2url(data));
+  delete PHOTOS[id]; return true;
+ }catch(_){return false}
+}
+
+/* ---- 동기화 ---- */
+async function syncNow(manual){
+ if(SYNCING)return;
+ if(!SB){const ok=await initSB();if(!ok){if(manual)toast(SYNCERR||'연결 준비 실패');return}}
+ if(!SESS){if(manual)toast('먼저 로그인해주세요');return}
+ if(!S.sync||!S.sync.spaceId){if(manual)toast('공간을 먼저 만들거나 합류해주세요');return}
+ SYNCING=true;SYNCERR='';paintSync();
+ const sid=S.sync.spaceId;
+ try{
+  /* 1) 받기 */
+  const since=S.sync.cursor||'1970-01-01T00:00:00Z';
+  const {data:rows,error:e1}=await SB.from('records').select('*').eq('space_id',sid).gt('updated_at',since).order('updated_at',{ascending:true}).limit(2000);
+  if(e1)throw e1;
+  (rows||[]).forEach(r=>{applyRecord(r);S.sync.sig[r.id]={s:r.deleted?'DEL':sigOf(r),kind:r.kind,day:r.day,slot:r.slot}});
+  if(rows&&rows.length)S.sync.cursor=rows[rows.length-1].updated_at;
+
+  const {data:sp,error:e2}=await SB.from('spaces').select('settings,updated_at,code').eq('id',sid).maybeSingle();
+  if(e2)throw e2;
+  if(sp){
+   S.sync.code=sp.code;
+   if(sp.updated_at&&sp.updated_at!==S.sync.setCursor&&sp.settings&&Object.keys(sp.settings).length){
+    applySettings(sp.settings);S.sync.setCursor=sp.updated_at;S.sync.setSig=JSON.stringify(pickSettings());
+   }
+  }
+
+  /* 2) 보내기 */
+  const cur=buildRecords(), ups=[], now=new Date().toISOString();
+  Object.values(cur).forEach(r=>{
+   const old=S.sync.sig[r.id];
+   if(!old||old.s!==sigOf(r))ups.push({id:r.id,space_id:sid,kind:r.kind,day:r.day,slot:r.slot,data:r.data,deleted:false,updated_at:now});
+  });
+  Object.keys(S.sync.sig).forEach(id=>{
+   const m=S.sync.sig[id];
+   if(!cur[id]&&m&&m.s!=='DEL')ups.push({id,space_id:sid,kind:m.kind,day:m.day,slot:m.slot,data:{},deleted:true,updated_at:now});
+  });
+  /* 사진 먼저 올리기 */
+  for(const r of ups.filter(x=>x.kind==='photo'&&!x.deleted)){
+   const b=await blobOf(r.id);
+   if(b){try{await SB.storage.from('photos').upload(`${sid}/${r.id}.jpg`,b,{upsert:true,contentType:'image/jpeg'})}catch(_){}}
+  }
+  for(let i=0;i<ups.length;i+=100){
+   const chunk=ups.slice(i,i+100);
+   const {error:e3}=await SB.from('records').upsert(chunk,{onConflict:'id'});
+   if(e3)throw e3;
+   chunk.forEach(r=>{S.sync.sig[r.id]={s:r.deleted?'DEL':JSON.stringify(r.data),kind:r.kind,day:r.day,slot:r.slot}});
+  }
+  /* 설정 보내기 */
+  const setSig=JSON.stringify(pickSettings());
+  if(setSig!==S.sync.setSig){
+   const {data:sp2,error:e4}=await SB.from('spaces').update({settings:pickSettings(),updated_at:now}).eq('id',sid).select('updated_at').maybeSingle();
+   if(e4)throw e4;
+   S.sync.setSig=setSig; if(sp2)S.sync.setCursor=sp2.updated_at;
+  }
+  /* 3) 없는 사진 내려받기 */
+  let n=0;
+  for(const id of Array.from(PHOTO_WANT)){
+   if(n>=20)break;
+   const has=await DB.get('p:'+id);
+   if(!has){await pullPhoto(id);n++}
+   PHOTO_WANT.delete(id);
+  }
+  S.sync.last=new Date().toISOString();
+  save();
+  SYNCING=false;paintSync();
+  if(rows&&rows.length)render();
+  if(manual)toast('동기화 완료');
+ }catch(e){
+  SYNCING=false;SYNCERR=String((e&&(e.message||e.error_description))||e);paintSync();
+  if(manual)toast('동기화 실패: '+SYNCERR.slice(0,40));
+ }
+}
+let syncT=null;
+function syncSoon(){if(!syncOn())return;clearTimeout(syncT);syncT=setTimeout(()=>syncNow(false),2500)}
+function paintSync(){
+ const el=document.getElementById('syncdot'); if(!el)return;
+ el.style.display=syncOn()?'block':'none';
+ el.style.background=SYNCING?'#F6A96B':SYNCERR?'var(--warn)':'var(--ok)';
+}
+
+/* ---- 계정 화면 ---- */
+V.sync=()=>{
+ const on=syncOn();
+ const last=S.sync&&S.sync.last?new Date(S.sync.last):null;
+ const lastTx=last?`${last.getMonth()+1}월 ${last.getDate()}일 ${pad(last.getHours())}:${pad(last.getMinutes())}`:'아직 없음';
+ if(!SESS)return `
+  <div class="card" style="text-align:center;padding:22px 14px;background:linear-gradient(135deg,rgba(255,228,238,.85),rgba(233,226,255,.85))">
+    <div style="font-size:30px">🔗</div>
+    <div style="font-size:14px;font-weight:900;margin-top:8px">두 사람 기록을 하나로</div>
+    <div style="font-size:11.5px;color:#B08596;margin-top:7px;line-height:1.7;font-weight:600">
+      로그인하면 폰과 PC, 짝꿍 폰이 전부 같은 기록을 봅니다<br>지금 기기에 있는 기록은 그대로 올라갑니다</div>
+  </div>
+  <div class="card">
+    <div class="fl">이메일</div><input class="in" id="au_e" type="email" autocomplete="username" placeholder="you@example.com" value="${esc((S.sync&&S.sync.email)||'')}">
+    <div class="fl">비밀번호 (6자 이상)</div><input class="in" id="au_p" type="password" autocomplete="current-password" placeholder="••••••">
+    <div class="btns"><button class="btn g" onclick="doSignup()">처음이에요 · 가입</button>
+      <button class="btn p" onclick="doLogin()">로그인</button></div>
+  </div>
+  ${SYNCERR?`<div class="card" style="padding:13px"><div style="font-size:11.5px;color:var(--warn);font-weight:700;word-break:break-all">${esc(SYNCERR)}</div></div>`:''}
+  <div class="card"><div style="font-size:11.5px;color:var(--sub);line-height:1.75;font-weight:600">
+   두 분이 각각 가입하시면 됩니다. 한 분이 공간을 만들고 초대코드를 알려주면, 다른 분이 그 코드로 합류합니다.</div></div>`;
+
+ if(!S.sync.spaceId)return `
+  <div class="card"><div class="prow" style="margin-top:0"><span>로그인</span><span style="color:var(--ok)">${esc(SESS.user.email)}</span></div></div>
+  <div class="sec">우리 공간 만들기</div>
+  <div class="card">
+    <div style="font-size:12px;color:var(--sub);font-weight:600;line-height:1.7;margin-bottom:10px">
+      먼저 시작하는 분이 누르세요. 초대코드가 만들어집니다.</div>
+    <button class="btn p" style="width:100%;padding:14px" onclick="doCreateSpace()">공간 만들기</button>
+  </div>
+  <div class="sec">초대코드로 합류</div>
+  <div class="card">
+    <input class="in" id="sp_code" placeholder="예: ABCD12" style="text-transform:uppercase;text-align:center;font-size:18px;font-weight:800;letter-spacing:2px">
+    <button class="btn g" style="width:100%;padding:14px;margin-top:10px" onclick="doJoinSpace()">합류하기</button>
+  </div>
+  ${SYNCERR?`<div class="card" style="padding:13px"><div style="font-size:11.5px;color:var(--warn);font-weight:700;word-break:break-all">${esc(SYNCERR)}</div></div>`:''}
+  <div class="card"><button class="btn g" style="width:100%;padding:13px" onclick="doLogout()">로그아웃</button></div>`;
+
+ return `
+  <div class="card" style="text-align:center;padding:20px 14px;background:linear-gradient(135deg,rgba(226,244,232,.9),rgba(233,240,255,.9))">
+    <div style="font-size:11.5px;color:#6E8C7B;font-weight:800">초대코드</div>
+    <div style="font-size:32px;font-weight:900;letter-spacing:4px;margin:5px 0">${esc(S.sync.code||'')}</div>
+    <div style="font-size:11.5px;color:#6E8C7B;font-weight:600">짝꿍에게 이 코드를 알려주세요</div>
+  </div>
+  <div class="card">
+    <div class="prow" style="margin-top:0"><span>계정</span><span>${esc(SESS.user.email)}</span></div>
+    <div class="prow"><span>내 자리</span><span>${S.sync.slot==='me'?esc(S.names.me):esc(S.names.you)}</span></div>
+    <div class="prow"><span>마지막 동기화</span><span>${lastTx}</span></div>
+    <div class="prow"><span>상태</span><span style="color:${SYNCING?'#E08A3C':SYNCERR?'var(--warn)':'var(--ok)'}">${SYNCING?'동기화 중…':SYNCERR?'오류':'정상'}</span></div>
+  </div>
+  ${SYNCERR?`<div class="card" style="padding:13px"><div style="font-size:11.5px;color:var(--warn);font-weight:700;word-break:break-all">${esc(SYNCERR)}</div></div>`:''}
+  <div class="card">
+    <button class="btn p" style="width:100%;padding:14px" onclick="syncNow(true)">지금 동기화</button>
+    <button class="btn g" style="width:100%;padding:13px;margin-top:9px" onclick="doLogout()">로그아웃</button>
+  </div>
+  <div class="card"><div style="font-size:11.5px;color:var(--sub);line-height:1.75;font-weight:600">
+    저장할 때마다 몇 초 뒤 자동으로 올라가고, 20초마다 새 기록을 받아옵니다. 인터넷이 끊겨도 앱은 그대로 쓸 수 있고 연결되면 자동으로 맞춰집니다.</div></div>`;
+};
+
+async function doSignup(){
+ const e=document.getElementById('au_e').value.trim(), p=document.getElementById('au_p').value;
+ if(!e||p.length<6)return toast('이메일과 6자 이상 비밀번호를 입력해주세요');
+ if(!SB&&!(await initSB()))return toast(SYNCERR||'연결 준비 실패');
+ SYNCERR='';
+ const {data,error}=await SB.auth.signUp({email:e,password:p});
+ if(error){SYNCERR=error.message;render();return toast('가입 실패')}
+ if(!data.session){SYNCERR='메일 인증이 켜져 있습니다. Supabase 설정에서 Confirm email을 꺼주세요.';render();return}
+ SESS=data.session;S.sync.email=e;save();render();toast('가입 완료');
+}
+async function doLogin(){
+ const e=document.getElementById('au_e').value.trim(), p=document.getElementById('au_p').value;
+ if(!e||!p)return toast('이메일과 비밀번호를 입력해주세요');
+ if(!SB&&!(await initSB()))return toast(SYNCERR||'연결 준비 실패');
+ SYNCERR='';
+ const {data,error}=await SB.auth.signInWithPassword({email:e,password:p});
+ if(error){SYNCERR=error.message;render();return toast('로그인 실패')}
+ SESS=data.session;S.sync.email=e;save();render();toast('로그인 완료');
+ if(S.sync.spaceId)syncNow(true);
+}
+async function doLogout(){
+ try{await SB.auth.signOut()}catch(_){}
+ SESS=null;SYNCERR='';render();toast('로그아웃했어요');
+}
+function randCode(){const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let s='';for(let i=0;i<6;i++)s+=A[Math.floor(Math.random()*A.length)];return s}
+async function doCreateSpace(){
+ SYNCERR='';
+ const code=randCode();
+ const {data,error}=await SB.rpc('create_space',{p_code:code});
+ if(error){SYNCERR=error.message;render();return toast('만들기 실패')}
+ S.sync.spaceId=data;S.sync.code=code;S.sync.slot='me';S.sync.cursor=null;S.sync.sig={};S.sync.setSig='';
+ S.profile='me';save();render();toast('공간을 만들었어요');
+ syncNow(true);
+}
+async function doJoinSpace(){
+ SYNCERR='';
+ const c=(document.getElementById('sp_code').value||'').trim().toUpperCase();
+ if(c.length<4)return toast('초대코드를 입력해주세요');
+ const {data,error}=await SB.rpc('join_space',{p_code:c});
+ if(error){
+  SYNCERR=error.message.includes('CODE_NOT_FOUND')?'그런 초대코드가 없어요':
+          error.message.includes('SPACE_FULL')?'이미 두 명이 차 있어요':error.message;
+  render();return toast('합류 실패')}
+ S.sync.spaceId=data;S.sync.code=c;S.sync.slot='you';S.sync.cursor=null;S.sync.sig={};S.sync.setSig='';
+ S.profile='you';save();render();toast('합류했어요');
+ syncNow(true);
+}
+
 /* 시작 */
 window.onerror=function(m){
  const el=document.getElementById('scr');
@@ -1326,6 +1610,15 @@ window.onerror=function(m){
 (async()=>{
  try{await load()}catch(_){S=JSON.parse(JSON.stringify(DEF))}
  try{render()}catch(e){window.onerror(e&&e.message||e)}
+ try{
+  if(S.sync&&(S.sync.email||S.sync.spaceId)){
+   await initSB();
+   if(SESS&&S.sync.spaceId){render();syncNow(false);
+    setInterval(()=>{if(!document.hidden)syncNow(false)},20000);
+    document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncNow(false)});
+   }else render();
+  }
+ }catch(_){}
  if(DB.mode==='mem')setTimeout(()=>toast('이 화면에서는 저장이 안 됩니다'),900);
  else if(!Object.keys(S.days).length)setTimeout(()=>toast('오늘부터 기록해볼까요 💗'),700);
 })();
