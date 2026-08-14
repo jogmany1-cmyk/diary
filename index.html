@@ -181,6 +181,38 @@ textarea::placeholder{color:#CDB9C4}
  padding:11px 20px;border-radius:22px;font-size:12.5px;font-weight:700;z-index:60;opacity:0;transition:.25s;pointer-events:none}
 .toast.on{opacity:1}
 .hl{background:#FFEEB8;border-radius:4px;padding:0 3px}
+
+/* ---- v2 가계부 ---- */
+.seg{display:flex;gap:6px;background:rgba(255,255,255,.6);padding:5px;border-radius:16px;border:1px solid var(--line)}
+.sg{flex:1;text-align:center;padding:11px 4px;border-radius:12px;font-size:12.5px;font-weight:800;color:#8A7680;cursor:pointer;white-space:nowrap}
+.sg.on{background:var(--ink);color:#fff;box-shadow:0 3px 10px rgba(74,63,69,.22)}
+.sg.on.me{background:var(--me);box-shadow:0 3px 10px rgba(91,141,239,.3)}
+.sg.on.you{background:var(--you);box-shadow:0 3px 10px rgba(244,114,182,.3)}
+.sg.on.our{background:var(--our);box-shadow:0 3px 10px rgba(167,139,250,.3)}
+.opt.sm{font-size:11.5px;padding:7px 12px;border-radius:12px}
+.plsel{display:flex;align-items:center;gap:10px;background:#FFF3F8;border:1.5px solid #F7D3E2;border-radius:16px;padding:11px 12px}
+.plsel .ic{width:32px;height:32px;border-radius:11px;background:#fff;display:grid;place-items:center;font-size:15px;flex:0 0 auto}
+.plsel .t{flex:1;min-width:0}
+.plsel .t b{display:block;font-size:12.5px}
+.plsel .t span{font-size:10.5px;color:var(--sub)}
+.plsel .x{color:#D9A8BE;font-size:17px;cursor:pointer;padding:0 4px}
+.exp .t span{display:block}
+.sw{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.cbar{cursor:pointer}
+.subs{margin:7px 0 2px;padding:9px 11px;background:rgba(255,255,255,.65);border-radius:12px}
+.srow{display:flex;justify-content:space-between;font-size:11.5px;padding:3px 0;color:#7A6A72;font-weight:600}
+.srow b{color:var(--ink);font-weight:800}
+.cmp{font-size:11.5px;color:var(--sub);margin-top:9px;font-weight:600}
+.mapbox{position:relative;height:300px;border-radius:var(--r);overflow:hidden;border:1px solid rgba(255,255,255,.8);
+ background:linear-gradient(160deg,#F3F6FA,#EDF2F7);box-shadow:0 3px 14px rgba(190,140,165,.09)}
+.mload,.mguide{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px}
+.mload{font-size:12.5px;color:var(--sub);font-weight:700}
+.mguide .btn{flex:0 0 auto;width:auto;min-width:150px}
+.movl{background:#fff;border-radius:14px;padding:5px 10px;box-shadow:0 3px 10px rgba(0,0,0,.18);white-space:nowrap;
+ font-size:10.5px;font-weight:800;text-align:center;border:1.5px solid var(--you)}
+.movl b{display:block;color:var(--ink)}
+.movl span{color:var(--warn);font-size:10px}
+.bs .b b{font-size:16px}
 .pill{font-size:10px;padding:3px 9px;border-radius:12px;background:#FDEEF4;color:#C86E96;font-weight:800}
 </style>
 </head>
@@ -245,92 +277,167 @@ const DB={db:null,mode:'mem',mem:{},
    if(DB.mode==='ls'){localStorage.removeItem('od:'+k);return true}
    delete DB.mem[k];return true;
   }catch(_){return false}}};
+
 function blob2url(b){return new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result);f.readAsDataURL(b)})}
 
+/* ================= 기본값 ================= */
 const DEF={
  names:{me:'나',you:'짝꿍'}, since:'2023-02-06', profile:'me',
  checkItems:['외식 안 하기','운동하기','지출 0원','영어공부'],
- cats:[['식비','🍚'],['카페·간식','☕'],['교통','🚇'],['생활용품','🧴'],['문화·여가','🎬'],['의료·건강','💊'],['경조사','🎁'],['기타','📦']],
- pays:['카드','현금','계좌이체','간편결제'],
+ cats:[
+  {n:'식비',e:'🍚',subs:['외식','배달','장보기','간식']},
+  {n:'카페',e:'☕',subs:['커피','디저트','베이커리']},
+  {n:'데이트',e:'💕',subs:['영화','전시','공연','나들이','여행']},
+  {n:'주거·통신',e:'🏠',subs:['월세','관리비','공과금','통신비','구독']},
+  {n:'교통',e:'🚇',subs:['대중교통','택시','주유','주차']},
+  {n:'쇼핑',e:'🛍️',subs:['의류','생활용품','뷰티','가전']},
+  {n:'건강',e:'💊',subs:['병원','약국','운동','영양제']},
+  {n:'경조사·선물',e:'🎁',subs:['축의금','부의금','선물']},
+  {n:'기타',e:'📦',subs:[]}
+ ],
+ pay:{card:['현대','삼성','KB국민','농협','하나','신한','우리','롯데'],
+      point:['카카오페이','네이버페이','상품권','쿠폰','포인트']},
+ budget:{monthly:0},
+ kakaoKey:'',
+ v:2,
  days:{}
 };
 let S=null, PHOTOS={};
 
 async function load(){
  await DB.init();
- let raw=await DB.get('state');
- let obj=null;
+ let raw=await DB.get('state'), obj=null;
  try{obj=typeof raw==='string'?JSON.parse(raw):raw}catch(_){obj=null}
  S=obj?Object.assign(JSON.parse(JSON.stringify(DEF)),obj):JSON.parse(JSON.stringify(DEF));
  if(!S.days)S.days={};
  if(!S.checkItems||!S.checkItems.length)S.checkItems=DEF.checkItems.slice();
+ migrate();
+}
+/* 기존 데이터 자동 변환 */
+function migrate(){
+ if(!S.cats||!S.cats.length||Array.isArray(S.cats[0]))S.cats=JSON.parse(JSON.stringify(DEF.cats));
+ if(!S.pay||!S.pay.card)S.pay=JSON.parse(JSON.stringify(DEF.pay));
+ if(!S.budget)S.budget={monthly:0};
+ if(S.kakaoKey===undefined)S.kakaoKey='';
+ const M={'카드':['card',''],'현금':['cash',''],'계좌이체':['cash','계좌이체'],'간편결제':['point','']};
+ Object.values(S.days).forEach(d=>{
+  (d.exp||[]).forEach(e=>{
+   if(!e.id)e.id='e'+Math.random().toString(36).slice(2,10);
+   if(typeof e.pay==='string'){const m=M[e.pay]||['cash',''];e.pay={type:m[0],issuer:m[1]}}
+   if(!e.pay)e.pay={type:'cash',issuer:''};
+   if(e.sub===undefined)e.sub='';
+   if(e.place===undefined)e.place=null;
+   if(!e.at)e.at=0;
+   if(e.by!=='me'&&e.by!=='you'&&e.by!=='our')e.by='me';
+  });
+ });
+ if(S.v!==2){S.v=2;save()}
 }
 let saveT=null;
-function save(){clearTimeout(saveT);saveT=setTimeout(()=>{try{DB.set('state',JSON.stringify(S))}catch(_){}} ,180)}
+function save(){clearTimeout(saveT);saveT=setTimeout(()=>{try{DB.set('state',JSON.stringify(S))}catch(_){}},180)}
 
 /* ================= 유틸 ================= */
 const WX=['☀️','🌤️','☁️','🌧️','⛈️','🌨️','🌫️','🌈'];
 const MOOD=['😍','😊','🙂','😐','😔','😢','😡','😴'];
 const MOODN={'😍':'행복','😊':'좋음','🙂':'보통','😐':'그저그럼','😔':'우울','😢':'슬픔','😡':'화남','😴':'피곤'};
+const PAYT=[['card','카드','💳'],['cash','현금','💵'],['point','포인트·쿠폰','🎫']];
+const BYN={me:'me',you:'you',our:'our'};
 const pad=n=>String(n).padStart(2,'0');
 const key=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 const parse=k=>{const[a,b,c]=k.split('-').map(Number);return new Date(a,b-1,c)};
 const DOW=['일','월','화','수','목','금','토'];
+const uid=()=>'e'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 function won(n){n=Math.abs(n);
  if(n>=100000000)return (n/100000000).toFixed(1).replace(/\.0$/,'')+'억';
  if(n>=10000)return (n/10000).toFixed(1).replace(/\.0$/,'')+'만';
  if(n>=1000)return (n/1000).toFixed(1).replace(/\.0$/,'')+'천';
  return String(n)}
-const comma=n=>n.toLocaleString('ko-KR');
+const comma=n=>Number(n||0).toLocaleString('ko-KR');
 function D(k){if(!S.days[k])S.days[k]={wx:null,diary:{},photos:[],exp:[],chk:{me:{},you:{}},places:[]};
- const d=S.days[k];d.diary=d.diary||{};d.photos=d.photos||[];d.exp=d.exp||[];d.chk=d.chk||{me:{},you:{}};d.chk.me=d.chk.me||{};d.chk.you=d.chk.you||{};d.places=d.places||[];return d}
+ const d=S.days[k];d.diary=d.diary||{};d.photos=d.photos||[];d.exp=d.exp||[];
+ d.chk=d.chk||{me:{},you:{}};d.chk.me=d.chk.me||{};d.chk.you=d.chk.you||{};d.places=d.places||[];return d}
 function daySum(k){const d=S.days[k];return d?d.exp.reduce((a,b)=>a+(b.t==='in'?0:b.a),0):0}
 function hasAny(k){const d=S.days[k];if(!d)return false;
  return !!(d.wx||d.photos.length||d.exp.length||Object.values(d.diary).some(v=>v&&v.text)||
-  Object.values(d.chk.me).some(Boolean)||Object.values(d.chk.you).some(Boolean))}
-function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),1500)}
-const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  Object.values(d.chk.me).some(Boolean)||Object.values(d.chk.you).some(Boolean)||d.places.length)}
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),1600)}
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const OTHER=p=>p==='me'?'you':'me';
+const catOf=n=>S.cats.find(c=>c.n===n)||S.cats[S.cats.length-1];
+const byName=b=>b==='our'?'공용':S.names[b];
+function payLabel(e){
+ const p=e.pay||{type:'cash',issuer:''};
+ if(p.type==='card')return (p.issuer?p.issuer+' ':'')+'카드';
+ if(p.type==='point')return p.issuer||'포인트';
+ return p.issuer||'현금';
+}
+const payIcon=t=>({card:'💳',cash:'💵',point:'🎫'}[t]||'💵');
 
-/* 사진 URL 캐시 */
+/* 모든 지출 순회 */
+function allExp(fn){Object.keys(S.days).forEach(k=>{(S.days[k].exp||[]).forEach(e=>fn(e,k))})}
+/* 장소별 집계 */
+function placeAgg(){
+ const m={};
+ allExp((e,k)=>{ if(!e.place||!e.place.name)return;
+  const id=e.place.pid||e.place.name;
+  if(!m[id])m[id]={...e.place,cnt:0,sum:0,last:k};
+  m[id].cnt++; if(e.t!=='in')m[id].sum+=e.a;
+  if(k>m[id].last)m[id].last=k;
+ });
+ return Object.values(m).sort((a,b)=>b.sum-a.sum);
+}
+function recentPlaces(n){
+ const seen={},out=[];
+ Object.keys(S.days).sort().reverse().forEach(k=>{(S.days[k].exp||[]).forEach(e=>{
+  if(e.place&&e.place.name&&!seen[e.place.name]){seen[e.place.name]=1;out.push(e.place)}})});
+ return out.slice(0,n||8);
+}
+
+/* 사진 */
 async function pURL(id){
  if(PHOTOS[id])return PHOTOS[id];
  const b=await DB.get('p:'+id); if(!b)return null;
  const u=(typeof b==='string')?b:URL.createObjectURL(b); PHOTOS[id]=u; return u;
 }
 async function hydrate(){
- for(const el of document.querySelectorAll('[data-ph]')){
-   const u=await pURL(el.dataset.ph);
-   if(u)el.style.backgroundImage=`url(${u})`;
- }
+ for(const el of document.querySelectorAll('[data-ph]')){const u=await pURL(el.dataset.ph);if(u)el.style.backgroundImage=`url(${u})`}
 }
-/* 사진 리사이즈 저장 */
 function resize(file){return new Promise(res=>{
  const img=new Image(), fr=new FileReader();
  fr.onload=()=>{img.onload=()=>{
-   const M=1600, s=Math.min(1,M/Math.max(img.width,img.height));
-   const c=document.createElement('canvas'); c.width=img.width*s|0; c.height=img.height*s|0;
+   const M=1600,s=Math.min(1,M/Math.max(img.width,img.height));
+   const c=document.createElement('canvas');c.width=img.width*s|0;c.height=img.height*s|0;
    c.getContext('2d').drawImage(img,0,0,c.width,c.height);
-   c.toBlob(b=>res(b),'image/jpeg',.82);
- }; img.src=fr.result}; fr.readAsDataURL(file)})}
+   c.toBlob(b=>res(b),'image/jpeg',.82)};img.src=fr.result};fr.readAsDataURL(file)})}
+
+/* ================= 카카오맵 ================= */
+let KSTATE='idle'; // idle | loading | ready | fail
+function loadKakao(cb){
+ if(KSTATE==='ready')return cb(true);
+ if(!S.kakaoKey){KSTATE='fail';return cb(false)}
+ if(KSTATE==='loading'){setTimeout(()=>cb(KSTATE==='ready'),900);return}
+ KSTATE='loading';
+ const s=document.createElement('script');
+ s.src='https://dapi.kakao.com/v2/maps/sdk.js?appkey='+encodeURIComponent(S.kakaoKey)+'&libraries=services&autoload=false';
+ s.onload=()=>{try{kakao.maps.load(()=>{KSTATE='ready';cb(true)})}catch(_){KSTATE='fail';cb(false)}};
+ s.onerror=()=>{KSTATE='fail';cb(false)};
+ document.head.appendChild(s);
+}
 
 /* ================= 상태 ================= */
-let view='cal', cur=new Date(), selDate=key(new Date()), q='', filt='all';
-const PARENT={day:'cal',search:'cal',set:'more',memo:'more'};
+let view='cal', cur=new Date(), selDate=key(new Date()), q='', filt='all', ledOpen=null, mapFilt='all';
+const PARENT={day:'cal',search:'cal',set:'more',cards:'set',cats:'set'};
 
 /* ================= 화면 ================= */
 const V={};
 
 V.cal=()=>{
  const y=cur.getFullYear(), m=cur.getMonth();
- const first=new Date(y,m,1).getDay(), last=new Date(y,m+1,0).getDate();
- const tk=key(new Date());
- let g='';
+ const first=new Date(y,m,1).getDay(), last=new Date(y,m+1,0).getDate(), tk=key(new Date());
+ let g='',mt=0;
  for(let i=0;i<first;i++)g+='<div class="cell off"></div>';
- let mt=0;
  for(let d=1;d<=last;d++){
-   const k=`${y}-${pad(m+1)}-${pad(d)}`, o=S.days[k], sp=daySum(k);
-   mt+=sp;
+   const k=`${y}-${pad(m+1)}-${pad(d)}`, o=S.days[k], sp=daySum(k); mt+=sp;
    const ph=o&&o.photos.length?o.photos[0]:null;
    const dm=o&&o.diary.me&&o.diary.me.text, dy=o&&o.diary.you&&o.diary.you.text;
    const ck=o?[S.checkItems.some(c=>o.chk.me[c]),S.checkItems.some(c=>o.chk.you[c])]:[0,0];
@@ -353,77 +460,71 @@ V.cal=()=>{
 };
 function todayCard(k){
  const o=S.days[k];
- if(!o||!hasAny(k))return `<div style="text-align:center;padding:8px 0">
-   <div style="font-size:26px">💗</div>
+ if(!o||!hasAny(k))return `<div style="text-align:center;padding:8px 0"><div style="font-size:26px">💗</div>
    <div style="font-size:12.5px;color:var(--sub);margin-top:7px;font-weight:600">아직 오늘 기록이 없어요. 눌러서 시작해보세요</div></div>`;
- const nMe=S.checkItems.filter(c=>o.chk.me[c]).length, nYou=S.checkItems.filter(c=>o.chk.you[c]).length;
+ const n=S.checkItems.filter(c=>o.chk.me[c]).length+S.checkItems.filter(c=>o.chk.you[c]).length;
  return `<div style="display:flex;gap:11px;align-items:center">
    ${o.photos.length?`<div style="width:56px;height:56px;border-radius:15px;background-size:cover;background-position:center" data-ph="${o.photos[0]}"></div>`
    :`<div style="width:56px;height:56px;border-radius:15px;background:#FBECF2;display:grid;place-items:center;font-size:22px">${o.wx||'📖'}</div>`}
    <div style="flex:1;min-width:0">
      <div style="font-size:12.5px;font-weight:800;margin-bottom:4px">${o.wx?o.wx+' · ':''}일기 ${Object.values(o.diary).filter(v=>v&&v.text).length} · 사진 ${o.photos.length} · 지출 ${o.exp.length}건</div>
-     <div style="font-size:11px;color:var(--sub);font-weight:600">체크 ${nMe+nYou}/${S.checkItems.length*2} · ${comma(daySum(k))}원</div>
+     <div style="font-size:11px;color:var(--sub);font-weight:600">체크 ${n}/${S.checkItems.length*2} · ${comma(daySum(k))}원</div>
    </div><div style="color:var(--sub);font-size:18px">›</div></div>`;
 }
 
 V.day=()=>{
- const k=selDate, o=D(k), dt=parse(k), me=S.profile, you=OTHER(me);
- const dm=o.diary[me]||{}, dy=o.diary[you]||{};
+ const k=selDate,o=D(k),me=S.profile,you=OTHER(me);
+ const dm=o.diary[me]||{},dy=o.diary[you]||{};
  const tot=o.exp.reduce((a,b)=>a+(b.t==='in'?-b.a:b.a),0);
  return `
- <div class="card">
-   <div style="font-size:11.5px;color:var(--sub);font-weight:800;margin-bottom:8px">오늘 날씨</div>
-   <div class="wxrow">${WX.map(w=>`<div class="wx1 ${o.wx===w?'on':''}" onclick="setWx('${w}')">${w}</div>`).join('')}</div>
- </div>
-
+ <div class="card"><div style="font-size:11.5px;color:var(--sub);font-weight:800;margin-bottom:8px">오늘 날씨</div>
+   <div class="wxrow">${WX.map(w=>`<div class="wx1 ${o.wx===w?'on':''}" onclick="setWx('${w}')">${w}</div>`).join('')}</div></div>
  <div class="photos">
    ${o.photos.map(id=>`<div class="p" data-ph="${id}"><b onclick="event.stopPropagation();delPhoto('${id}')">×</b></div>`).join('')}
-   <div class="add" onclick="addPhoto()">＋</div>
- </div>
-
+   <div class="add" onclick="addPhoto()">＋</div></div>
  <div class="card">
-   <div class="who"><span class="av" style="background:var(--${me})">${S.names[me][0]}</span>${S.names[me]}의 일기
+   <div class="who"><span class="av" style="background:var(--${me})">${esc(S.names[me][0])}</span>${esc(S.names[me])}의 일기
      <span style="margin-left:auto;font-size:11px;color:var(--sub);font-weight:700">${dm.mood?dm.mood+' '+MOODN[dm.mood]:'기분 선택'}</span></div>
    <div class="moods">${MOOD.map(x=>`<div class="md ${dm.mood===x?'on':''}" onclick="setMood('${x}')">${x}</div>`).join('')}</div>
-   <textarea id="dtx" placeholder="오늘 어땠어요?" oninput="setText(this.value)">${esc(dm.text||'')}</textarea>
- </div>
-
+   <textarea id="dtx" placeholder="오늘 어땠어요?" oninput="setText(this.value)">${esc(dm.text||'')}</textarea></div>
  <div class="card">
-   <div class="who"><span class="av" style="background:var(--${you})">${S.names[you][0]}</span>${S.names[you]}의 일기
+   <div class="who"><span class="av" style="background:var(--${you})">${esc(S.names[you][0])}</span>${esc(S.names[you])}의 일기
      <span style="margin-left:auto;font-size:11px;color:var(--sub);font-weight:700">${dy.mood?dy.mood+' '+MOODN[dy.mood]:''}</span></div>
-   ${dy.text?`<div class="ro">${esc(dy.text)}</div>`:`<div class="empty">아직 작성 전이에요. 우측 상단에서 프로필을 바꾸면 대신 쓸 수 있어요.</div>`}
- </div>
+   ${dy.text?`<div class="ro">${esc(dy.text)}</div>`:`<div class="empty">아직 작성 전이에요. 우측 상단에서 프로필을 바꾸면 대신 쓸 수 있어요.</div>`}</div>
 
  <div class="sec">오늘의 지출 <span class="more" onclick="expSheet()">＋ 추가</span></div>
  <div class="card">
-   ${o.exp.length?o.exp.map((e,i)=>`
-   <div class="exp"><div class="ic">${e.icon}</div>
-     <div class="t"><b>${esc(e.name||e.cat)}</b><span>${e.cat} · ${e.pay} · ${S.names[e.by]}</span></div>
-     <div class="a" style="color:${e.t==='in'?'var(--ok)':'var(--warn)'}">${e.t==='in'?'+':'-'}${comma(e.a)}</div>
-     <div class="x" onclick="delExp(${i})">×</div></div>`).join('')
+   ${o.exp.length?o.exp.map(e=>expRow(e,k)).join('')
    :`<div class="empty">지출 기록이 없어요 ${hasAny(k)?'· 오늘 0원 달성 🎉':''}</div>`}
    ${o.exp.length?`<div class="sumrow"><span>합계</span><span style="color:${tot>0?'var(--warn)':'var(--ok)'}">${tot>0?'-':'+'}${comma(Math.abs(tot))}원</span></div>`:''}
  </div>
 
  <div class="sec">오늘의 체크 <span class="more" onclick="go('set')">항목 편집</span></div>
- <div class="card">
-   <div class="chk">
-     <div></div><div class="h">${S.names.me}</div><div class="h">${S.names.you}</div>
-     ${S.checkItems.map(c=>`
-       <div>${esc(c)}</div>
-       <div class="cb ${o.chk.me[c]?'on me':''}" onclick="tog('me','${esc(c)}')">✓</div>
-       <div class="cb ${o.chk.you[c]?'on you':''}" onclick="tog('you','${esc(c)}')">✓</div>`).join('')}
-   </div>
- </div>
+ <div class="card"><div class="chk">
+   <div></div><div class="h">${esc(S.names.me)}</div><div class="h">${esc(S.names.you)}</div>
+   ${S.checkItems.map((c,i)=>`<div>${esc(c)}</div>
+     <div class="cb ${o.chk.me[c]?'on me':''}" onclick="togi('me',${i})">✓</div>
+     <div class="cb ${o.chk.you[c]?'on you':''}" onclick="togi('you',${i})">✓</div>`).join('')}
+ </div></div>
 
- <div class="sec">오늘 간 곳 <span class="more" onclick="placeSheet()">＋ 추가</span></div>
+ <div class="sec">오늘 간 곳 <span class="more" onclick="placeOnly()">＋ 추가</span></div>
  <div class="card">
-   ${o.places.length?o.places.map((p,i)=>`
-   <div class="exp"><div class="ic">📍</div><div class="t"><b>${esc(p.n)}</b><span>${esc(p.c||'')}</span></div>
-   <div class="x" onclick="delPlace(${i})">×</div></div>`).join('')
-   :`<div class="empty">오늘 간 곳을 남겨보세요</div>`}
+   ${o.places.length?o.places.map((p,i)=>`<div class="exp"><div class="ic">📍</div>
+     <div class="t"><b>${esc(p.n||p.name)}</b><span>${esc(p.c||p.address||'')}</span></div>
+     <div class="x" onclick="delPlace(${i})">×</div></div>`).join('')
+   :`<div class="empty">지출에 장소를 넣으면 지도에 자동으로 표시됩니다</div>`}
  </div>`;
 };
+function expRow(e,k){
+ const c=catOf(e.cat);
+ return `<div class="exp" onclick="expSheet('${e.id}','${k}')">
+  <div class="ic">${e.icon||c.e}</div>
+  <div class="t"><b>${esc(e.name||e.cat)}</b>
+    <span>${esc(e.cat)}${e.sub?' › '+esc(e.sub):''} · ${payIcon(e.pay.type)}${esc(payLabel(e))} · ${esc(byName(e.by))}</span>
+    ${e.place&&e.place.name?`<span style="color:#C58AA6">📍 ${esc(e.place.name)}</span>`:''}</div>
+  <div class="a" style="color:${e.t==='in'?'var(--ok)':'var(--warn)'}">${e.t==='in'?'+':'-'}${comma(e.a)}</div>
+  <div class="x" onclick="event.stopPropagation();delExp('${e.id}','${k}')">×</div></div>`;
+}
 
 V.list=()=>{
  let ks=Object.keys(S.days).filter(hasAny).sort().reverse();
@@ -437,9 +538,8 @@ V.list=()=>{
    const nc=S.checkItems.filter(c=>o.chk.me[c]).length+S.checkItems.filter(c=>o.chk.you[c]).length;
    return `<div class="lc" onclick="openDay('${k}')">
      <div class="th" ${o.photos.length?`data-ph="${o.photos[0]}"`:''}>${o.photos.length?'':(o.wx||'📖')}</div>
-     <div class="c">
-       <div class="dt">${d.getMonth()+1}월 ${d.getDate()}일 ${DOW[d.getDay()]} ${o.wx||''}
-         ${o.diary.me&&o.diary.me.mood?`<span class="pill">${o.diary.me.mood}</span>`:''}</div>
+     <div class="c"><div class="dt">${d.getMonth()+1}월 ${d.getDate()}일 ${DOW[d.getDay()]} ${o.wx||''}
+       ${o.diary.me&&o.diary.me.mood?`<span class="pill">${o.diary.me.mood}</span>`:''}</div>
        <div class="tx">${tx?esc(tx):'<span style="color:#C9B4BF">일기 없음</span>'}</div>
        <div class="mt"><span>지출 <b>${comma(daySum(k))}원</b></span><span>체크 ${nc}/${S.checkItems.length*2}</span><span>사진 ${o.photos.length}</span></div>
      </div></div>`}).join('')
@@ -447,121 +547,235 @@ V.list=()=>{
    <div style="font-size:13px;color:var(--sub);margin-top:10px;font-weight:600">기록이 쌓이면 여기에 모여요</div></div>`}`;
 };
 
+/* ---------- 가계부 대시보드 ---------- */
+const COL=['#F472B6','#5B8DEF','#A78BFA','#F6A96B','#4FAE7C','#EF8FA8','#7FC7E8','#C9A6E9','#F0C36B'];
 V.led=()=>{
- const y=cur.getFullYear(), m=cur.getMonth(), pre=new Date(y,m-1,1);
+ const y=cur.getFullYear(),m=cur.getMonth(),pre=new Date(y,m-1,1);
  const inM=k=>{const d=parse(k);return d.getFullYear()===y&&d.getMonth()===m};
  const inP=k=>{const d=parse(k);return d.getFullYear()===pre.getFullYear()&&d.getMonth()===pre.getMonth()};
- let out=0,inc=0,byCat={},byWho={me:0,you:0},byDay={},prev=0;
- Object.keys(S.days).forEach(k=>{S.days[k].exp.forEach(e=>{
-   if(inP(k)&&e.t!=='in')prev+=e.a;
-   if(!inM(k))return;
-   if(e.t==='in'){inc+=e.a;return}
-   out+=e.a; byCat[e.cat]=(byCat[e.cat]||0)+e.a; byWho[e.by]=(byWho[e.by]||0)+e.a;
-   const dd=parse(k).getDate(); byDay[dd]=(byDay[dd]||0)+e.a;
- })});
+ let out=0,inc=0,prev=0,byCat={},bySub={},byWho={me:0,you:0,our:0},byPay={},byDay={},cnt=0;
+ allExp((e,k)=>{
+  if(inP(k)&&e.t!=='in')prev+=e.a;
+  if(!inM(k))return;
+  if(e.t==='in'){inc+=e.a;return}
+  out+=e.a;cnt++;
+  byCat[e.cat]=(byCat[e.cat]||0)+e.a;
+  const sk=e.cat+'||'+(e.sub||'기타'); bySub[sk]=(bySub[sk]||0)+e.a;
+  byWho[e.by]=(byWho[e.by]||0)+e.a;
+  const pl=payLabel(e); byPay[pl]=(byPay[pl]||0)+e.a;
+  byDay[parse(k).getDate()]=(byDay[parse(k).getDate()]||0)+e.a;
+ });
  const cs=Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
- const COL=['#F472B6','#5B8DEF','#A78BFA','#F6A96B','#4FAE7C','#EF8FA8','#7FC7E8','#C9A6E9'];
  const tot=cs.reduce((a,b)=>a+b[1],0)||1;
- let acc=0, segs='';
+ let acc=0,segs='';
  cs.forEach((c,i)=>{const p=c[1]/tot*100;
-   segs+=`<circle r="15.9" cx="18" cy="18" fill="none" stroke="${COL[i%8]}" stroke-width="5.4" stroke-dasharray="${p.toFixed(2)} ${(100-p).toFixed(2)}" stroke-dashoffset="${(25-acc).toFixed(2)}"/>`;acc+=p});
+  segs+=`<circle r="15.9" cx="18" cy="18" fill="none" stroke="${COL[i%9]}" stroke-width="5.2" stroke-dasharray="${p.toFixed(2)} ${(100-p).toFixed(2)}" stroke-dashoffset="${(25-acc).toFixed(2)}"/>`;acc+=p});
  const last=new Date(y,m+1,0).getDate(), mx=Math.max(1,...Object.values(byDay));
- const wp=byWho.me+byWho.you||1;
+ const wt=byWho.me+byWho.you+byWho.our||1;
  const diff=prev?out-prev:0;
- return `<div class="mrow"><div class="m" style="font-size:16px">${y}년 ${m+1}월</div>
+ const ps=Object.entries(byPay).sort((a,b)=>b[1]-a[1]);
+ const bud=S.budget.monthly||0;
+ const places=placeAgg().slice(0,5);
+ return `
+ <div class="mrow"><div class="m" style="font-size:16px">${y}년 ${m+1}월</div>
    <div class="nav"><button onclick="mv(-1)">‹</button><button onclick="mv(1)">›</button></div></div>
  <div class="bs">
    <div class="b"><span>수입</span><b style="color:var(--ok)">${won(inc)}</b></div>
    <div class="b"><span>지출</span><b style="color:var(--warn)">${won(out)}</b></div>
    <div class="b"><span>합계</span><b>${inc-out>=0?'+':'-'}${won(inc-out)}</b></div>
  </div>
+ ${bud?`<div class="card"><div class="prow"><span>이달 예산 ${won(bud)}원</span>
+   <span style="color:${out>bud?'var(--warn)':'var(--ok)'}">${Math.round(out/bud*100)}% 사용</span></div>
+   <div class="bar"><i style="width:${Math.min(100,out/bud*100)}%;background:${out>bud?'var(--warn)':'linear-gradient(90deg,#F472B6,#A78BFA)'}"></i></div>
+   <div class="cmp">남은 금액 ${comma(Math.max(0,bud-out))}원</div></div>`:''}
+
  ${out?`
- <div class="sec">분류별</div>
- <div class="card"><div style="display:flex;align-items:center;gap:14px">
-   <svg width="102" height="102" viewBox="0 0 36 36" style="transform:rotate(-90deg);flex:0 0 auto">${segs}</svg>
-   <div class="lgd" style="flex:1">${cs.slice(0,6).map((c,i)=>
-     `<div class="r"><i style="background:${COL[i%8]}"></i><span>${c[0]}</span><b>${won(c[1])}</b></div>`).join('')}</div>
- </div></div>
- <div class="sec">사람별</div>
+ <div class="sec">누가 얼마나 썼나</div>
  <div class="card">
-   <div class="prow"><span>${S.names.me}</span><span>${comma(byWho.me)}원 (${Math.round(byWho.me/wp*100)}%)</span></div>
-   <div class="bar"><i style="width:${byWho.me/wp*100}%;background:var(--me)"></i></div>
-   <div class="prow"><span>${S.names.you}</span><span>${comma(byWho.you)}원 (${Math.round(byWho.you/wp*100)}%)</span></div>
-   <div class="bar"><i style="width:${byWho.you/wp*100}%;background:var(--you)"></i></div>
+   ${[['me',S.names.me,'var(--me)'],['you',S.names.you,'var(--you)'],['our','공용','var(--our)']].map(w=>`
+     <div class="prow"><span><i class="sw" style="background:${w[2]}"></i>${esc(w[1])}</span>
+       <span>${comma(byWho[w[0]])}원 · ${Math.round(byWho[w[0]]/wt*100)}%</span></div>
+     <div class="bar"><i style="width:${byWho[w[0]]/wt*100}%;background:${w[2]}"></i></div>`).join('')}
  </div>
+
+ <div class="sec">카테고리별 <span class="more">${cnt}건</span></div>
+ <div class="card">
+   <div style="display:flex;align-items:center;gap:14px;margin-bottom:10px">
+     <svg width="98" height="98" viewBox="0 0 36 36" style="transform:rotate(-90deg);flex:0 0 auto">${segs}</svg>
+     <div style="flex:1">
+       <div style="font-size:10.5px;color:var(--sub);font-weight:800">이달 총 지출</div>
+       <div style="font-size:21px;font-weight:900;letter-spacing:-.6px;margin-top:2px">${comma(out)}원</div>
+       <div style="font-size:11px;color:var(--sub);font-weight:600;margin-top:3px">하루 평균 ${comma(Math.round(out/last))}원</div>
+     </div>
+   </div>
+   ${cs.map((c,i)=>{const o2=catOf(c[0]);const open=ledOpen===c[0];
+     const subs=Object.entries(bySub).filter(([k2])=>k2.split('||')[0]===c[0]).sort((a,b)=>b[1]-a[1]);
+     return `<div class="cbar" onclick="ledOpen=${open?'null':`'${c[0]}'`};render()">
+       <div class="prow" style="margin-top:9px"><span>${o2.e} ${esc(c[0])}</span>
+         <span>${comma(c[1])}원 · ${Math.round(c[1]/tot*100)}%</span></div>
+       <div class="bar"><i style="width:${c[1]/tot*100}%;background:${COL[i%9]}"></i></div>
+       ${open&&subs.length?`<div class="subs">${subs.map(s=>`<div class="srow"><span>${esc(s[0].split('||')[1])}</span><b>${comma(s[1])}원</b></div>`).join('')}</div>`:''}
+     </div>`}).join('')}
+ </div>
+
+ <div class="sec">결제수단별</div>
+ <div class="card">
+   ${ps.map((p,i)=>`<div class="prow"><span>${esc(p[0])}</span><span>${comma(p[1])}원</span></div>
+     <div class="bar"><i style="width:${p[1]/tot*100}%;background:${COL[(i+3)%9]}"></i></div>`).join('')}
+ </div>
+
  <div class="sec">일별 추이</div>
  <div class="card">
    <div class="trend">${Array.from({length:last},(_,i)=>
      `<i class="${byDay[i+1]===mx?'hi':''}" style="height:${(byDay[i+1]||0)/mx*100}%"></i>`).join('')}</div>
-   <div style="font-size:11.5px;color:var(--sub);margin-top:9px;font-weight:600">
-     ${prev?`전월 대비 <b style="color:${diff>0?'var(--warn)':'var(--ok)'}">${diff>0?'▲':'▼'} ${comma(Math.abs(diff))}원 (${Math.abs(diff/prev*100).toFixed(1)}%)</b>`:'전월 자료가 쌓이면 비교해드려요'}
-   </div>
- </div>`
- :`<div class="card" style="text-align:center;padding:34px 14px"><div style="font-size:30px">🧾</div>
-   <div style="font-size:13px;color:var(--sub);margin-top:10px;font-weight:600">이번 달 지출 기록이 없어요</div></div>`}`;
+   <div class="cmp">${prev?`전월 대비 <b style="color:${diff>0?'var(--warn)':'var(--ok)'}">${diff>0?'▲':'▼'} ${comma(Math.abs(diff))}원 (${Math.abs(diff/prev*100).toFixed(1)}%)</b>`:'전월 자료가 쌓이면 비교해드려요'}</div>
+ </div>
+
+ ${places.length?`<div class="sec">많이 쓴 곳 <span class="more" onclick="go('map')">지도에서 보기</span></div>
+ <div class="card">${places.map(p=>`<div class="exp"><div class="ic">📍</div>
+   <div class="t"><b>${esc(p.name)}</b><span>${p.cnt}회 방문 · ${esc(p.address||'')}</span></div>
+   <div class="a">${comma(p.sum)}</div></div>`).join('')}</div>`:''}
+ `:`<div class="card" style="text-align:center;padding:34px 14px"><div style="font-size:30px">🧾</div>
+   <div style="font-size:13px;color:var(--sub);margin-top:10px;font-weight:600">이번 달 지출 기록이 없어요</div>
+   <button class="btn p" style="margin-top:14px" onclick="selDate=key(new Date());expSheet()">지출 입력하기</button></div>`}`;
 };
 
-V.search=()=>{
- const t=q.trim();
- let res=[];
- if(t){Object.keys(S.days).sort().reverse().forEach(k=>{const o=S.days[k];
-   ['me','you'].forEach(p=>{const d=o.diary[p];
-     if(d&&d.text&&d.text.includes(t))res.push({k,type:'일기 · '+S.names[p],tx:d.text})});
-   o.exp.forEach(e=>{if((e.name||'').includes(t)||e.cat.includes(t))
-     res.push({k,type:'지출 · '+S.names[e.by],tx:`${e.name||e.cat} · ${comma(e.a)}원 · ${e.cat}`})});
-   o.places.forEach(p=>{if(p.n.includes(t))res.push({k,type:'장소',tx:p.n+' '+(p.c||'')})});
- })}
- const mark=s=>t?esc(s).replace(new RegExp(t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'g'),m=>`<span class="hl">${m}</span>`):esc(s);
- return `<div class="card" style="display:flex;align-items:center;gap:9px;padding:12px 14px">
-   <svg viewBox="0 0 24 24" style="width:17px;height:17px;stroke:#A2909A;fill:none;stroke-width:2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-   <input class="in" style="border:0;padding:0;font-size:14px" id="sq" placeholder="일기 · 지출 · 장소 검색" value="${esc(q)}"
-    oninput="q=this.value;renderKeep()"></div>
- ${t?`<div style="font-size:11.5px;color:var(--sub);padding:2px 4px 8px;font-weight:700">결과 ${res.length}건</div>`:''}
- ${res.map(r=>{const d=parse(r.k);return `<div class="card" style="cursor:pointer;padding:12px" onclick="openDay('${r.k}')">
-   <div style="font-size:11px;color:var(--sub);margin-bottom:5px;font-weight:700">${r.type} · ${d.getMonth()+1}월 ${d.getDate()}일</div>
-   <div style="font-size:12.5px;line-height:1.6">${mark(r.tx.slice(0,110))}${r.tx.length>110?'…':''}</div></div>`}).join('')}
- ${t&&!res.length?`<div class="card" style="text-align:center;padding:30px"><div style="font-size:26px">🔍</div>
-   <div style="font-size:12.5px;color:var(--sub);margin-top:9px;font-weight:600">검색 결과가 없어요</div></div>`:''}`;
+/* ---------- 방문 지도 ---------- */
+V.map=()=>{
+ const all=placeAgg();
+ const has=all.filter(p=>p.lat&&p.lng);
+ setTimeout(()=>drawMap(has),60);
+ return `<div class="filters">
+   <div class="f ${mapFilt==='all'?'on':''}" onclick="mapFilt='all';render()">전체 ${all.length}곳</div>
+   <div class="f ${mapFilt==='top'?'on':''}" onclick="mapFilt='top';render()">많이 쓴 순</div>
+   <div class="f ${mapFilt==='recent'?'on':''}" onclick="mapFilt='recent';render()">최근 순</div>
+ </div>
+ <div id="mapbox" class="mapbox">${S.kakaoKey?'<div class="mload">지도 불러오는 중…</div>':`
+   <div class="mguide"><div style="font-size:28px">🗺️</div>
+   <div style="font-size:13px;font-weight:800;margin-top:9px">지도를 켜려면 카카오 앱키가 필요해요</div>
+   <div style="font-size:11.5px;color:var(--sub);margin-top:7px;line-height:1.65;font-weight:600">
+     무료이고 5분이면 됩니다. 설정에서 키를 넣으면 바로 켜져요.<br>키가 없어도 장소 기록은 계속 쌓입니다.</div>
+   <button class="btn p" style="margin-top:14px;padding:12px 22px" onclick="go('set')">설정으로 가기</button></div>`}</div>
+ <div class="sec">우리가 쓴 곳 <span class="more">${all.length}곳 · ${comma(all.reduce((a,b)=>a+b.sum,0))}원</span></div>
+ ${all.length?sortPlaces(all).map(p=>`<div class="lc" style="padding:12px 13px" onclick="placeDetail('${esc(p.pid||p.name)}')">
+   <div class="th" style="width:44px;height:44px;font-size:19px;background:#FDEEF4">📍</div>
+   <div class="c"><div class="dt">${esc(p.name)}</div>
+     <div class="tx">${esc(p.address||'주소 없음')}</div>
+     <div class="mt"><span>${p.cnt}회</span><span>총 <b>${comma(p.sum)}원</b></span><span>최근 ${p.last.slice(5).replace('-','/')}</span></div>
+   </div></div>`).join('')
+ :`<div class="card" style="text-align:center;padding:34px 14px"><div style="font-size:30px">📍</div>
+   <div style="font-size:13px;color:var(--sub);margin-top:10px;font-weight:600">지출을 입력할 때 장소를 함께 넣어보세요</div>
+   <div style="font-size:11.5px;color:var(--sub);margin-top:6px;font-weight:600">어디서 얼마를 썼는지 지도에 쌓입니다</div></div>`}`;
 };
+function sortPlaces(a){
+ if(mapFilt==='recent')return a.slice().sort((x,y)=>y.last.localeCompare(x.last));
+ return a.slice().sort((x,y)=>y.sum-x.sum);
+}
+let MAPOBJ=null;
+function drawMap(list){
+ const box=document.getElementById('mapbox'); if(!box||!S.kakaoKey)return;
+ loadKakao(ok=>{
+  if(!ok){box.innerHTML=`<div class="mguide"><div style="font-size:26px">😢</div>
+    <div style="font-size:12.5px;font-weight:800;margin-top:8px">지도를 불러오지 못했어요</div>
+    <div style="font-size:11px;color:var(--sub);margin-top:6px;font-weight:600">앱키가 맞는지, 사이트 도메인을 등록했는지 확인해주세요</div>
+    <button class="btn g" style="margin-top:12px;padding:11px 20px" onclick="go('set')">설정 열기</button></div>`;return}
+  box.innerHTML='';
+  const c=list.length?new kakao.maps.LatLng(list[0].lat,list[0].lng):new kakao.maps.LatLng(37.5665,126.9780);
+  const map=new kakao.maps.Map(box,{center:c,level:list.length?6:8});
+  MAPOBJ=map;
+  const bounds=new kakao.maps.LatLngBounds();
+  list.forEach(p=>{
+   const pos=new kakao.maps.LatLng(p.lat,p.lng); bounds.extend(pos);
+   new kakao.maps.Marker({map,position:pos});
+   const ov=new kakao.maps.CustomOverlay({map,position:pos,yAnchor:2.1,
+     content:`<div class="movl"><b>${esc(p.name)}</b><span>${won(p.sum)}원</span></div>`});
+  });
+  if(list.length>1)map.setBounds(bounds);
+ });
+}
+function placeDetail(id){
+ const rows=[];
+ allExp((e,k)=>{if(e.place&&(e.place.pid||e.place.name)===id)rows.push({e,k})});
+ rows.sort((a,b)=>b.k.localeCompare(a.k));
+ if(!rows.length)return;
+ const p=rows[0].e.place, sum=rows.filter(r=>r.e.t!=='in').reduce((a,b)=>a+b.e.a,0);
+ sheet(`<h3>${esc(p.name)}</h3>
+  <div style="text-align:center;font-size:11.5px;color:var(--sub);font-weight:600;margin:-8px 0 14px">${esc(p.address||'')}</div>
+  <div class="bs"><div class="b"><span>방문</span><b>${rows.length}회</b></div>
+    <div class="b"><span>총 지출</span><b style="color:var(--warn)">${won(sum)}</b></div>
+    <div class="b"><span>평균</span><b>${won(Math.round(sum/rows.length))}</b></div></div>
+  <div class="fl">방문 기록</div>
+  <div style="max-height:40vh;overflow-y:auto">${rows.map(r=>`<div class="exp">
+    <div class="ic">${r.e.icon||'📍'}</div>
+    <div class="t"><b>${esc(r.e.name||r.e.cat)}</b><span>${r.k.slice(5).replace('-','/')} · ${esc(byName(r.e.by))} · ${esc(payLabel(r.e))}</span></div>
+    <div class="a">${comma(r.e.a)}</div></div>`).join('')}</div>
+  <div class="btns"><button class="btn p" onclick="close_()">닫기</button></div>`);
+}
 
+/* ---------- 더보기 ---------- */
 V.more=()=>{
  const days=Object.keys(S.days).filter(hasAny).length;
  const ph=Object.values(S.days).reduce((a,d)=>a+d.photos.length,0);
  const sd=Math.floor((new Date()-parse(S.since))/86400000);
  let done=0,total=0;
- Object.keys(S.days).forEach(k=>{const o=S.days[k];
-   S.checkItems.forEach(c=>{total+=2;if(o.chk.me[c])done++;if(o.chk.you[c])done++})});
+ Object.keys(S.days).forEach(k=>{const o=S.days[k];S.checkItems.forEach(c=>{total+=2;if(o.chk.me[c])done++;if(o.chk.you[c])done++})});
  return `
  <div class="card" style="text-align:center;padding:24px 14px;background:linear-gradient(135deg,rgba(255,228,238,.85),rgba(233,226,255,.85))">
    <div style="font-size:11.5px;color:#B08596;font-weight:800">함께한 지</div>
    <div style="font-size:40px;font-weight:900;letter-spacing:-1.6px;margin:3px 0">${comma(sd)}일</div>
-   <div style="font-size:11.5px;color:#B08596;font-weight:600">${S.since}부터</div>
- </div>
+   <div style="font-size:11.5px;color:#B08596;font-weight:600">${S.since}부터</div></div>
  <div class="sec">우리 기록</div>
  <div class="card">
    <div class="prow"><span>기록한 날</span><span>${days}일</span></div>
    <div class="prow"><span>사진</span><span>${ph}장</span></div>
+   <div class="prow"><span>방문한 곳</span><span>${placeAgg().length}곳</span></div>
    <div class="prow"><span>체크 달성률</span><span>${total?Math.round(done/total*100):0}%</span></div>
    <div class="prow"><span>저장 방식</span><span style="color:${DB.mode==='mem'?'var(--warn)':'var(--ok)'}">${DB.mode==='idb'?'정상 (기기 저장)':DB.mode==='ls'?'정상 (간이 저장)':'저장 안 됨'}</span></div>
  </div>
  <div class="sec">메뉴</div>
  <div class="card" style="padding:6px 14px">
-   ${[['⚙️','설정','이름 · 체크 항목 · 시작일',"go('set')"],
+   ${[['⚙️','설정','이름 · 카테고리 · 카드사 · 지도키',"go('set')"],
       ['💾','백업 내보내기','일기 · 지출을 파일로 저장','exportAll()'],
       ['📥','백업 불러오기','내보낸 파일로 복원','importAll()'],
       ['📱','홈 화면에 추가','앱처럼 쓰는 방법','howto()']]
     .map(m=>`<div class="exp" style="cursor:pointer" onclick="${m[3]}">
       <div class="ic">${m[0]}</div><div class="t"><b>${m[1]}</b><span>${m[2]}</span></div>
-      <div style="color:var(--sub)">›</div></div>`).join('')}
- </div>`;
+      <div style="color:var(--sub)">›</div></div>`).join('')}</div>`;
 };
 
+/* ---------- 설정 ---------- */
 V.set=()=>`
- <div class="sec" style="margin-top:6px">이름</div>
+ <div class="sec" style="margin-top:6px">이름과 시작일</div>
  <div class="card">
-   <div class="fl">${'내 이름'}</div><input class="in" value="${esc(S.names.me)}" oninput="S.names.me=this.value||'나';save()">
+   <div class="fl">내 이름</div><input class="in" value="${esc(S.names.me)}" oninput="S.names.me=this.value||'나';save()">
    <div class="fl">짝꿍 이름</div><input class="in" value="${esc(S.names.you)}" oninput="S.names.you=this.value||'짝꿍';save()">
    <div class="fl">함께한 시작일</div><input class="in" type="date" value="${S.since}" onchange="S.since=this.value;save()">
+ </div>
+ <div class="sec">가계부</div>
+ <div class="card" style="padding:6px 14px">
+   ${[['🏷️','카테고리 편집',S.cats.length+'개 대분류',"go('cats')"],
+      ['💳','결제수단 편집','카드 '+S.pay.card.length+'개 · 간편결제 '+S.pay.point.length+'개',"go('cards')"]]
+    .map(m=>`<div class="exp" style="cursor:pointer" onclick="${m[3]}">
+      <div class="ic">${m[0]}</div><div class="t"><b>${m[1]}</b><span>${m[2]}</span></div>
+      <div style="color:var(--sub)">›</div></div>`).join('')}
+ </div>
+ <div class="card">
+   <div class="fl">이달 예산 (0이면 사용 안 함)</div>
+   <input class="in" inputmode="numeric" value="${S.budget.monthly||''}" placeholder="예: 600000"
+     oninput="S.budget.monthly=+this.value.replace(/[^0-9]/g,'')||0;save()">
+ </div>
+ <div class="sec">방문 지도</div>
+ <div class="card">
+   <div class="fl">카카오 JavaScript 앱키</div>
+   <input class="in" value="${esc(S.kakaoKey)}" placeholder="발급받은 키를 붙여넣으세요"
+     onchange="S.kakaoKey=this.value.trim();KSTATE='idle';save();toast(S.kakaoKey?'지도를 켰어요':'지도를 껐어요')">
+   <div style="font-size:11.5px;color:var(--sub);line-height:1.75;margin-top:10px;font-weight:600">
+     1. developers.kakao.com 로그인<br>
+     2. 내 애플리케이션 → 애플리케이션 추가하기<br>
+     3. 앱 키 화면의 JavaScript 키 복사<br>
+     4. 플랫폼 → Web → 사이트 도메인에 https://jogmany1-cmyk.github.io 등록<br>
+     5. 앱 설정에서 카카오맵 사용 ON<br>
+     무료이고 이 앱은 무료 범위 안에서만 씁니다.</div>
  </div>
  <div class="sec">매일 체크 항목</div>
  <div class="card">
@@ -580,80 +794,232 @@ V.set=()=>`
      지금은 한 기기에서 두 사람 프로필을 바꿔가며 씁니다. 다음 단계에서 계정 연결을 붙이면 각자 폰에서 동시에 쓰고 자동으로 동기화됩니다.</div>
  </div>`;
 
+V.cards=()=>`
+ <div class="sec" style="margin-top:6px">💳 카드사</div>
+ <div class="card">
+   ${S.pay.card.map((c,i)=>`<div class="exp"><div class="ic">💳</div>
+     <div class="t"><input class="in" style="border:0;padding:4px 0;font-size:13px" value="${esc(c)}" onchange="S.pay.card[${i}]=this.value.trim()||'카드';save()"></div>
+     <div class="x" onclick="S.pay.card.splice(${i},1);save();render()">×</div></div>`).join('')}
+   <button class="btn g" style="width:100%;margin-top:10px;padding:12px" onclick="S.pay.card.push('새 카드');save();render()">＋ 카드사 추가</button>
+ </div>
+ <div class="sec">🎫 포인트 · 쿠폰 · 상품권</div>
+ <div class="card">
+   ${S.pay.point.map((c,i)=>`<div class="exp"><div class="ic">🎫</div>
+     <div class="t"><input class="in" style="border:0;padding:4px 0;font-size:13px" value="${esc(c)}" onchange="S.pay.point[${i}]=this.value.trim()||'포인트';save()"></div>
+     <div class="x" onclick="S.pay.point.splice(${i},1);save();render()">×</div></div>`).join('')}
+   <button class="btn g" style="width:100%;margin-top:10px;padding:12px" onclick="S.pay.point.push('새 수단');save();render()">＋ 수단 추가</button>
+ </div>
+ <div class="card"><div style="font-size:11.5px;color:var(--sub);line-height:1.7;font-weight:600">
+   현금은 하위 항목이 없습니다. 이름을 바꾸면 이미 입력한 기록의 표시도 함께 바뀝니다.</div></div>`;
+
+V.cats=()=>`
+ <div class="sec" style="margin-top:6px">카테고리</div>
+ ${S.cats.map((c,i)=>`<div class="card">
+   <div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">
+     <input class="in" style="width:52px;text-align:center;padding:9px 0;font-size:17px" value="${esc(c.e)}" onchange="S.cats[${i}].e=this.value||'📦';save();render()">
+     <input class="in" style="flex:1" value="${esc(c.n)}" onchange="renameCat(${i},this.value)">
+     <div class="x" onclick="S.cats.splice(${i},1);save();render()">×</div>
+   </div>
+   <div class="fl" style="margin:4px 2px 6px">소분류</div>
+   <div class="opts">
+     ${c.subs.map((s,j)=>`<div class="opt" onclick="S.cats[${i}].subs.splice(${j},1);save();render()">${esc(s)} ×</div>`).join('')}
+     <div class="opt" style="border-style:dashed" onclick="addSub(${i})">＋ 추가</div>
+   </div>
+ </div>`).join('')}
+ <button class="btn g" style="width:100%;padding:14px" onclick="S.cats.push({n:'새 분류',e:'📦',subs:[]});save();render()">＋ 대분류 추가</button>
+ <div style="height:14px"></div>`;
+
+/* ---------- 검색 ---------- */
+V.search=()=>{
+ const t=q.trim(); let res=[];
+ if(t){Object.keys(S.days).sort().reverse().forEach(k=>{const o=S.days[k];
+  ['me','you'].forEach(p=>{const d=o.diary[p];if(d&&d.text&&d.text.includes(t))res.push({k,type:'일기 · '+S.names[p],tx:d.text})});
+  o.exp.forEach(e=>{const hay=(e.name||'')+' '+e.cat+' '+(e.sub||'')+' '+payLabel(e)+' '+((e.place&&e.place.name)||'');
+   if(hay.includes(t))res.push({k,type:'지출 · '+byName(e.by),tx:`${e.name||e.cat} · ${comma(e.a)}원 · ${e.cat}${e.sub?' › '+e.sub:''}${e.place?' · 📍'+e.place.name:''}`})});
+  o.places.forEach(p=>{if((p.n||p.name||'').includes(t))res.push({k,type:'장소',tx:(p.n||p.name)+' '+(p.c||'')})});
+ })}
+ const mark=s=>t?esc(s).replace(new RegExp(t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'g'),m=>`<span class="hl">${m}</span>`):esc(s);
+ return `<div class="card" style="display:flex;align-items:center;gap:9px;padding:12px 14px">
+   <svg viewBox="0 0 24 24" style="width:17px;height:17px;stroke:#A2909A;fill:none;stroke-width:2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+   <input class="in" style="border:0;padding:0;font-size:14px" id="sq" placeholder="일기 · 지출 · 장소 · 카드사 검색" value="${esc(q)}" oninput="q=this.value;renderKeep()"></div>
+ ${t?`<div style="font-size:11.5px;color:var(--sub);padding:2px 4px 8px;font-weight:700">결과 ${res.length}건</div>`:''}
+ ${res.map(r=>{const d=parse(r.k);return `<div class="card" style="cursor:pointer;padding:12px" onclick="openDay('${r.k}')">
+   <div style="font-size:11px;color:var(--sub);margin-bottom:5px;font-weight:700">${esc(r.type)} · ${d.getMonth()+1}월 ${d.getDate()}일</div>
+   <div style="font-size:12.5px;line-height:1.6">${mark(r.tx.slice(0,110))}${r.tx.length>110?'…':''}</div></div>`}).join('')}
+ ${t&&!res.length?`<div class="card" style="text-align:center;padding:30px"><div style="font-size:26px">🔍</div>
+   <div style="font-size:12.5px;color:var(--sub);margin-top:9px;font-weight:600">검색 결과가 없어요</div></div>`:''}`;
+};
+
 /* ================= 액션 ================= */
 function mv(n){cur=new Date(cur.getFullYear(),cur.getMonth()+n,1);render()}
 function openDay(k){selDate=k;go('day')}
 function setWx(w){const o=D(selDate);o.wx=o.wx===w?null:w;save();render()}
-function setMood(m){const o=D(selDate),p=S.profile;o.diary[p]=o.diary[p]||{};
- o.diary[p].mood=o.diary[p].mood===m?null:m;save();render()}
+function setMood(m){const o=D(selDate),p=S.profile;o.diary[p]=o.diary[p]||{};o.diary[p].mood=o.diary[p].mood===m?null:m;save();render()}
 function setText(v){const o=D(selDate),p=S.profile;o.diary[p]=o.diary[p]||{};o.diary[p].text=v;save()}
-function tog(w,c){const o=D(selDate);o.chk[w][c]=!o.chk[w][c];save();render()}
-function delExp(i){const o=D(selDate);o.exp.splice(i,1);save();render()}
+function togi(w,i){const c=S.checkItems[i];const o=D(selDate);o.chk[w][c]=!o.chk[w][c];save();render()}
+function delExp(id,k){const o=D(k);o.exp=o.exp.filter(x=>x.id!==id);save();render();toast('삭제했어요')}
 function delPlace(i){const o=D(selDate);o.places.splice(i,1);save();render()}
 async function delPhoto(id){const o=D(selDate);o.photos=o.photos.filter(x=>x!==id);await DB.del('p:'+id);delete PHOTOS[id];save();render()}
 function addPhoto(){document.getElementById('fin').click()}
 document.getElementById('fin').onchange=async e=>{
- const fs=[...e.target.files]; e.target.value='';
- if(!fs.length)return; toast('사진 저장 중…');
+ const fs=[...e.target.files];e.target.value='';if(!fs.length)return;toast('사진 저장 중…');
  const o=D(selDate);
- for(const f of fs){const b=await resize(f); const id='ph'+Date.now()+Math.random().toString(36).slice(2,7);
-   const val=(DB.mode==='idb')?b:await blob2url(b);
-   await DB.set('p:'+id,val); o.photos.push(id)}
+ for(const f of fs){const b=await resize(f);const id='ph'+Date.now()+Math.random().toString(36).slice(2,7);
+   await DB.set('p:'+id,(DB.mode==='idb')?b:await blob2url(b));o.photos.push(id)}
  save();render();toast('사진 '+fs.length+'장 저장');
 };
-
-/* 지출 입력 시트 */
-let ex={a:0,cat:null,icon:'📦',pay:'카드',name:'',t:'out',by:'me'};
-function expSheet(){
- ex={a:0,cat:S.cats[0][0],icon:S.cats[0][1],pay:S.pays[0],name:'',t:'out',by:S.profile};
- sheet(`<h3>지출 · 수입 입력</h3>
-  <div class="opts" style="margin-bottom:12px">
-    <div class="opt on" id="tOut" onclick="ex.t='out';this.classList.add('on');document.getElementById('tIn').classList.remove('on')">지출</div>
-    <div class="opt" id="tIn" onclick="ex.t='in';this.classList.add('on');document.getElementById('tOut').classList.remove('on')">수입</div>
-  </div>
-  <input class="in amt" id="eA" inputmode="numeric" placeholder="0" oninput="fmtA(this)">
-  <div class="pads">${[1000,5000,10000,30000,50000,'C'].map(v=>
-    `<button onclick="padA('${v}')">${v==='C'?'지우기':'+'+won(v)}</button>`).join('')}</div>
-  <div class="fl">분류</div>
-  <div class="opts" id="eCat">${S.cats.map((c,i)=>
-    `<div class="opt ${i===0?'on':''}" onclick="pick('eCat',this);ex.cat='${c[0]}';ex.icon='${c[1]}'">${c[1]} ${c[0]}</div>`).join('')}</div>
-  <div class="fl">결제수단</div>
-  <div class="opts" id="ePay">${S.pays.map((p,i)=>
-    `<div class="opt ${i===0?'on':''}" onclick="pick('ePay',this);ex.pay='${p}'">${p}</div>`).join('')}</div>
-  <div class="fl">누가</div>
-  <div class="opts" id="eBy">
-    <div class="opt ${S.profile==='me'?'on':''}" onclick="pick('eBy',this);ex.by='me'">${esc(S.names.me)}</div>
-    <div class="opt ${S.profile==='you'?'on':''}" onclick="pick('eBy',this);ex.by='you'">${esc(S.names.you)}</div></div>
-  <div class="fl">내용</div>
-  <input class="in" id="eN" placeholder="예: 저녁 칼국수" oninput="ex.name=this.value">
-  <div class="btns"><button class="btn g" onclick="close_()">취소</button><button class="btn p" onclick="saveExp()">저장</button></div>`);
- setTimeout(()=>document.getElementById('eA').focus(),120);
-}
-function fmtA(el){const n=+el.value.replace(/[^0-9]/g,'')||0;ex.a=n;el.value=n?comma(n):''}
-function padA(v){if(v==='C'){ex.a=0}else{ex.a+=+v}
- const el=document.getElementById('eA');el.value=ex.a?comma(ex.a):''}
-function pick(id,el){[...document.getElementById(id).children].forEach(c=>c.classList.remove('on'));el.classList.add('on')}
-function saveExp(){if(!ex.a)return toast('금액을 입력해주세요');
- D(selDate).exp.push({...ex});save();close_();render();toast('저장했어요')}
-/* 장소 */
-function placeSheet(){
- sheet(`<h3>오늘 간 곳</h3>
-  <div class="fl">장소 이름</div><input class="in" id="pN" placeholder="예: 뚝섬한강공원">
-  <div class="fl">메모 (지역 · 분류)</div><input class="in" id="pC" placeholder="예: 데이트 · 광진구">
-  <div class="btns"><button class="btn g" onclick="close_()">취소</button><button class="btn p" onclick="savePlace()">저장</button></div>`);
- setTimeout(()=>document.getElementById('pN').focus(),120);
-}
-function savePlace(){const n=document.getElementById('pN').value.trim();if(!n)return toast('장소를 입력해주세요');
- D(selDate).places.push({n,c:document.getElementById('pC').value.trim()});save();close_();render();toast('저장했어요')}
-/* 체크 항목 */
 function addChk(){S.checkItems.push('새 항목');save();render()}
-function renameChk(i,v){const old=S.checkItems[i];const nv=v.trim()||old;
+function renameChk(i,v){const old=S.checkItems[i],nv=v.trim()||old;
  Object.values(S.days).forEach(d=>{['me','you'].forEach(p=>{if(d.chk[p][old]!==undefined){d.chk[p][nv]=d.chk[p][old];delete d.chk[p][old]}})});
  S.checkItems[i]=nv;save()}
 function delChk(i){S.checkItems.splice(i,1);save();render()}
-/* 백업 */
+function renameCat(i,v){const old=S.cats[i].n,nv=v.trim()||old;
+ allExp(e=>{if(e.cat===old)e.cat=nv});S.cats[i].n=nv;save();render()}
+function addSub(i){
+ sheet(`<h3>소분류 추가</h3><div class="fl">${esc(S.cats[i].n)}</div>
+  <input class="in" id="nsub" placeholder="예: 배달">
+  <div class="btns"><button class="btn g" onclick="close_()">취소</button>
+  <button class="btn p" onclick="const v=document.getElementById('nsub').value.trim();if(v){S.cats[${i}].subs.push(v);save()}close_();render()">추가</button></div>`);
+ setTimeout(()=>document.getElementById('nsub').focus(),120);
+}
+
+/* ================= 지출 입력 시트 ================= */
+let EX=null, EXid=null, EXkey=null;
+function newEX(){return {id:uid(),t:'out',a:0,cat:S.cats[0].n,sub:'',icon:S.cats[0].e,
+ by:S.profile,pay:{type:'card',issuer:S.pay.card[0]||''},place:null,name:'',at:Date.now()}}
+function expSheet(id,k){
+ EXkey=k||selDate; EXid=id||null;
+ if(id){const f=(D(EXkey).exp||[]).find(x=>x.id===id);EX=f?JSON.parse(JSON.stringify(f)):newEX()}
+ else EX=newEX();
+ drawEX();
+}
+function drawEX(){
+ const c=catOf(EX.cat);
+ const issuers=EX.pay.type==='card'?S.pay.card:EX.pay.type==='point'?S.pay.point:[];
+ sheet(`<h3>${EXid?'지출 수정':'지출 · 수입 입력'}</h3>
+  <div class="seg">
+    <div class="sg ${EX.t==='out'?'on':''}" onclick="EX.t='out';drawEX()">지출</div>
+    <div class="sg ${EX.t==='in'?'on':''}" onclick="EX.t='in';drawEX()">수입</div>
+  </div>
+  <input class="in amt" id="eA" inputmode="numeric" placeholder="0" value="${EX.a?comma(EX.a):''}" oninput="fmtA(this)">
+  <div class="pads">${[1000,5000,10000,30000,50000,'C'].map(v=>`<button onclick="padA('${v}')">${v==='C'?'지우기':'+'+won(v)}</button>`).join('')}</div>
+
+  <div class="fl">카테고리</div>
+  <div class="opts">${S.cats.map((x,i)=>`<div class="opt ${x.n===EX.cat?'on':''}" onclick="pickCat(${i})">${x.e} ${esc(x.n)}</div>`).join('')}</div>
+  ${c.subs.length?`<div class="opts" style="margin-top:7px">
+    ${c.subs.map(s=>`<div class="opt sm ${EX.sub===s?'on':''}" onclick="EX.sub=(EX.sub==='${esc(s)}'?'':'${esc(s)}');drawEX()">${esc(s)}</div>`).join('')}</div>`:''}
+
+  <div class="fl">결제수단</div>
+  <div class="seg">${PAYT.map(p=>`<div class="sg ${EX.pay.type===p[0]?'on':''}" onclick="pickPay('${p[0]}')">${p[2]} ${p[1]}</div>`).join('')}</div>
+  ${issuers.length?`<div class="opts" style="margin-top:8px">
+    ${issuers.map(x=>`<div class="opt sm ${EX.pay.issuer===x?'on':''}" onclick="EX.pay.issuer='${esc(x)}';drawEX()">${esc(x)}</div>`).join('')}
+    <div class="opt sm" style="border-style:dashed" onclick="go('cards');close_()">＋ 편집</div></div>`
+   :(EX.pay.type==='cash'?`<div class="opts" style="margin-top:8px">
+    ${['','계좌이체'].map(x=>`<div class="opt sm ${EX.pay.issuer===x?'on':''}" onclick="EX.pay.issuer='${x}';drawEX()">${x||'현금'}</div>`).join('')}</div>`:'')}
+
+  <div class="fl">누가 결제했나요</div>
+  <div class="seg">
+    <div class="sg ${EX.by==='me'?'on me':''}" onclick="EX.by='me';drawEX()">${esc(S.names.me)}</div>
+    <div class="sg ${EX.by==='you'?'on you':''}" onclick="EX.by='you';drawEX()">${esc(S.names.you)}</div>
+    <div class="sg ${EX.by==='our'?'on our':''}" onclick="EX.by='our';drawEX()">공용</div>
+  </div>
+
+  <div class="fl">어디서 썼나요</div>
+  ${EX.place?`<div class="plsel"><div class="ic">📍</div>
+     <div class="t"><b>${esc(EX.place.name)}</b><span>${esc(EX.place.address||'좌표 없음')}</span></div>
+     <div class="x" onclick="EX.place=null;drawEX()">×</div></div>`
+   :`<button class="btn g" style="width:100%;padding:13px" onclick="placeSheet()">🔎 장소 검색해서 넣기</button>`}
+
+  <div class="fl">내용</div>
+  <input class="in" id="eN" placeholder="예: 저녁 칼국수" value="${esc(EX.name)}" oninput="EX.name=this.value">
+
+  <div class="btns">
+   ${EXid?`<button class="btn g" onclick="delExp('${EXid}','${EXkey}');close_()">삭제</button>`:`<button class="btn g" onclick="close_()">취소</button>`}
+   <button class="btn p" onclick="saveExp()">저장</button></div>`);
+ if(!EXid)setTimeout(()=>{const a=document.getElementById('eA');if(a)a.focus()},130);
+}
+function pickCat(i){EX.cat=S.cats[i].n;EX.icon=S.cats[i].e;EX.sub='';drawEX()}
+function pickPay(t){EX.pay.type=t;
+ EX.pay.issuer = t==='card'?(S.pay.card[0]||''): t==='point'?(S.pay.point[0]||''):'';
+ drawEX()}
+function fmtA(el){const n=+el.value.replace(/[^0-9]/g,'')||0;EX.a=n;el.value=n?comma(n):''}
+function padA(v){if(v==='C')EX.a=0;else EX.a+=+v;const el=document.getElementById('eA');if(el)el.value=EX.a?comma(EX.a):''}
+function saveExp(){
+ if(!EX.a)return toast('금액을 입력해주세요');
+ const o=D(EXkey);
+ if(EXid){const i=o.exp.findIndex(x=>x.id===EXid); if(i>=0)o.exp[i]=EX; else o.exp.push(EX)}
+ else o.exp.push(EX);
+ if(EX.place&&EX.place.name&&!o.places.some(p=>(p.n||p.name)===EX.place.name))
+   o.places.push({n:EX.place.name,c:EX.place.address||''});
+ save();close_();render();toast(EXid?'수정했어요':'저장했어요');
+}
+
+/* ---------- 장소 검색 시트 ---------- */
+let PRES=[];
+function placeSheet(){
+ PRES=[];
+ const rec=recentPlaces(8);
+ sheet(`<h3>장소 찾기</h3>
+  <div style="display:flex;gap:8px">
+   <input class="in" id="pq" placeholder="상호명이나 주소" style="flex:1" onkeydown="if(event.key==='Enter')doSearch()">
+   <button class="btn p" style="flex:0 0 76px;padding:0" onclick="doSearch()">검색</button></div>
+  ${rec.length?`<div class="fl">최근 쓴 곳</div><div class="opts">
+    ${rec.map((p,i)=>`<div class="opt sm" onclick="useRecent(${i})">📍 ${esc(p.name)}</div>`).join('')}</div>`:''}
+  <div id="pres"></div>
+  <div class="fl">직접 입력</div>
+  <input class="in" id="pmn" placeholder="장소 이름">
+  <input class="in" id="pma" placeholder="지역·메모 (선택)" style="margin-top:7px">
+  <div class="btns"><button class="btn g" onclick="drawEX()">뒤로</button>
+   <button class="btn p" onclick="manualPlace()">이 이름으로 넣기</button></div>`);
+ window.__rec=rec;
+ setTimeout(()=>{const el=document.getElementById('pq');if(el)el.focus()},130);
+ if(S.kakaoKey)loadKakao(()=>{});
+}
+function useRecent(i){EX.place=window.__rec[i];drawEX()}
+function manualPlace(){
+ const n=document.getElementById('pmn').value.trim();
+ if(!n)return toast('장소 이름을 입력해주세요');
+ EX.place={name:n,address:document.getElementById('pma').value.trim(),lat:null,lng:null,pid:''};
+ drawEX();
+}
+function doSearch(){
+ const kw=document.getElementById('pq').value.trim(); if(!kw)return;
+ const box=document.getElementById('pres');
+ if(!S.kakaoKey){box.innerHTML=`<div class="card" style="margin-top:12px;padding:14px">
+   <div style="font-size:12.5px;font-weight:800">지도 검색이 꺼져 있어요</div>
+   <div style="font-size:11.5px;color:var(--sub);margin-top:6px;line-height:1.65;font-weight:600">
+   설정에서 카카오 앱키를 넣으면 상호명으로 검색됩니다. 지금은 아래 직접 입력을 써주세요.</div></div>`;return}
+ box.innerHTML=`<div style="text-align:center;padding:16px;font-size:12px;color:var(--sub);font-weight:700">검색 중…</div>`;
+ loadKakao(ok=>{
+  if(!ok){box.innerHTML=`<div class="card" style="margin-top:12px;padding:14px;font-size:12px;font-weight:700">
+    지도를 불러오지 못했어요. 앱키와 도메인 등록을 확인해주세요.</div>`;return}
+  new kakao.maps.services.Places().keywordSearch(kw,(data,st)=>{
+   if(st!==kakao.maps.services.Status.OK||!data.length){
+    box.innerHTML=`<div style="text-align:center;padding:16px;font-size:12px;color:var(--sub);font-weight:700">결과가 없어요. 직접 입력해보세요</div>`;return}
+   PRES=data.slice(0,12).map(d=>({name:d.place_name,address:d.road_address_name||d.address_name,
+     lat:+d.y,lng:+d.x,pid:d.id,cat:d.category_group_name||''}));
+   box.innerHTML=`<div class="fl">검색 결과</div><div style="max-height:38vh;overflow-y:auto">${
+    PRES.map((p,i)=>`<div class="exp" style="cursor:pointer" onclick="usePlace(${i})">
+      <div class="ic">📍</div><div class="t"><b>${esc(p.name)}</b><span>${esc(p.address||'')}${p.cat?' · '+esc(p.cat):''}</span></div>
+      <div style="color:var(--sub)">›</div></div>`).join('')}</div>`;
+  });
+ });
+}
+function usePlace(i){EX.place=PRES[i];drawEX()}
+/* 지출 없이 장소만 */
+function placeOnly(){
+ sheet(`<h3>오늘 간 곳</h3>
+  <div class="fl">장소 이름</div><input class="in" id="pN" placeholder="예: 뚝섬한강공원">
+  <div class="fl">메모 (지역 · 분류)</div><input class="in" id="pC" placeholder="예: 데이트 · 광진구">
+  <div class="btns"><button class="btn g" onclick="close_()">취소</button><button class="btn p" onclick="savePlaceOnly()">저장</button></div>`);
+ setTimeout(()=>document.getElementById('pN').focus(),120);
+}
+function savePlaceOnly(){const n=document.getElementById('pN').value.trim();if(!n)return toast('장소를 입력해주세요');
+ D(selDate).places.push({n,c:document.getElementById('pC').value.trim()});save();close_();render();toast('저장했어요')}
+
+/* ---------- 백업 ---------- */
 function exportAll(){
- const b=new Blob([JSON.stringify({v:1,exportedAt:new Date().toISOString(),state:S},null,1)],{type:'application/json'});
+ const b=new Blob([JSON.stringify({v:2,exportedAt:new Date().toISOString(),state:S},null,1)],{type:'application/json'});
  const a=document.createElement('a');a.href=URL.createObjectURL(b);
  a.download=`롴이복희다이어리_백업_${key(new Date())}.json`;a.click();
  toast('사진은 기기에 그대로 있어요');
@@ -662,7 +1028,7 @@ function importAll(){
  const i=document.createElement('input');i.type='file';i.accept='.json';
  i.onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();
   r.onload=()=>{try{const j=JSON.parse(r.result);if(!j.state)throw 0;
-    S=Object.assign(JSON.parse(JSON.stringify(DEF)),j.state);save();render();toast('복원했어요')}
+    S=Object.assign(JSON.parse(JSON.stringify(DEF)),j.state);migrate();save();render();toast('복원했어요')}
    catch(_){toast('파일을 읽을 수 없어요')}};r.readAsText(f)};
  i.click();
 }
@@ -670,8 +1036,9 @@ function howto(){sheet(`<h3>홈 화면에 추가하기</h3>
  <div style="font-size:13px;line-height:1.85;color:#6B5A63">
  아이폰 — 사파리에서 이 페이지를 열고 하단 공유 버튼 → 홈 화면에 추가<br><br>
  안드로이드 — 크롬에서 우측 상단 점 세 개 → 홈 화면에 추가<br><br>
- 추가하면 주소창 없이 앱처럼 열리고, 알림도 받을 수 있게 됩니다.</div>
+ 추가하면 주소창 없이 앱처럼 열리고 기록이 안정적으로 저장됩니다.</div>
  <div class="btns"><button class="btn p" onclick="close_()">알겠어요</button></div>`)}
+
 /* 시트 */
 function sheet(html){document.getElementById('sheet').innerHTML=html;document.getElementById('mk').classList.add('on')}
 function close_(){document.getElementById('mk').classList.remove('on')}
@@ -682,13 +1049,16 @@ const TABS=[
  ['cal','캘린더','<rect x="3" y="5" width="18" height="16" rx="4"/><path d="M8 3v4M16 3v4M3 10h18"/>'],
  ['list','기록','<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>'],
  ['led','가계부','<path d="M3 7a3 3 0 013-3h9a3 3 0 013 3v10a3 3 0 01-3 3H6a3 3 0 01-3-3z"/><path d="M18 10h3v4h-3"/><path d="M7 9h7M7 13h5"/>'],
+ ['map','지도','<path d="M9 3L3 6v15l6-3 6 3 6-3V3l-6 3z"/><path d="M9 3v15M15 6v15"/>'],
  ['more','더보기','<path d="M12 21s-7.5-4.7-9.4-9A5.4 5.4 0 0112 5.3 5.4 5.4 0 0121.4 12c-1.9 4.3-9.4 9-9.4 9z"/>']];
 const TITLE=()=>({
  cal:['롴이복희 다이어리',`함께한 지 ${comma(Math.floor((new Date()-parse(S.since))/86400000))}일`],
  day:(()=>{const d=parse(selDate);return [`${d.getMonth()+1}월 ${d.getDate()}일`,`${DOW[d.getDay()]}요일${selDate===key(new Date())?' · 오늘':''}`]})(),
  list:['롴이복희 기록',`${Object.keys(S.days).filter(hasAny).length}일 기록됨`],
- led:['가계부','우리 · 내 · 짝꿍 지출'],
- more:['더보기',''], set:['설정',''], search:['검색','일기 · 지출 · 장소']
+ led:['가계부','나 · 짝꿍 · 공용'],
+ map:['방문 지도','어디서 얼마를 썼나'],
+ more:['더보기',''], set:['설정',''], cards:['결제수단',''], cats:['카테고리',''],
+ search:['검색','일기 · 지출 · 장소']
 }[view]||['','']);
 
 function go(v){view=v;render();document.getElementById('scr').scrollTop=0}
@@ -698,24 +1068,24 @@ function render(){
  document.getElementById('ttl').textContent=t[0];
  document.getElementById('stl').textContent=t[1];
  document.getElementById('bk').style.display=PARENT[view]?'grid':'none';
- document.getElementById('fab').style.display=(view==='cal'||view==='list'||view==='led')?'grid':'none';
+ document.getElementById('fab').style.display=(view==='cal'||view==='list'||view==='led'||view==='map')?'grid':'none';
  const w=document.getElementById('who');
  w.innerHTML=`<span class="av" style="background:var(--${S.profile})">${esc(S.names[S.profile][0])}</span>`;
  const act=PARENT[view]||view;
- document.getElementById('tb').innerHTML=TABS.map(t=>
-  `<button class="${t[0]===act?'on':''}" onclick="go('${t[0]}')"><svg viewBox="0 0 24 24">${t[2]}</svg><span>${t[1]}</span></button>`).join('');
+ document.getElementById('tb').innerHTML=TABS.map(t2=>
+  `<button class="${t2[0]===act?'on':''}" onclick="go('${t2[0]}')"><svg viewBox="0 0 24 24">${t2[2]}</svg><span>${t2[1]}</span></button>`).join('');
  hydrate();
 }
-function renderKeep(){ // 검색 입력 유지
- const el=document.getElementById('sq'), p=el?el.selectionStart:0;
+function renderKeep(){
+ const el=document.getElementById('sq'),p=el?el.selectionStart:0;
  render();
- const n=document.getElementById('sq'); if(n){n.focus();n.setSelectionRange(p,p)}
+ const n=document.getElementById('sq');if(n){n.focus();n.setSelectionRange(p,p)}
 }
 document.getElementById('bk').onclick=()=>go(PARENT[view]||'cal');
 document.getElementById('sbtn').onclick=()=>{q='';go('search')};
 document.getElementById('who').onclick=()=>{S.profile=OTHER(S.profile);save();render();toast(S.names[S.profile]+' 으로 전환')};
 document.getElementById('fab').onclick=()=>{
- if(view==='led'){selDate=key(new Date());expSheet();return}
+ if(view==='led'||view==='map'){selDate=key(new Date());expSheet();return}
  openDay(key(new Date()));
 };
 
@@ -732,6 +1102,7 @@ window.onerror=function(m){
  if(DB.mode==='mem')setTimeout(()=>toast('이 화면에서는 저장이 안 됩니다'),900);
  else if(!Object.keys(S.days).length)setTimeout(()=>toast('오늘부터 기록해볼까요 💗'),700);
 })();
+
 </script>
 </body>
 </html>
