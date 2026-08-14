@@ -847,25 +847,41 @@ V.cats=()=>`
  <div style="height:14px"></div>`;
 
 /* ---------- 검색 ---------- */
-V.search=()=>{
- const t=q.trim(); let res=[];
- if(t){Object.keys(S.days).sort().reverse().forEach(k=>{const o=S.days[k];
-  ['me','you'].forEach(p=>{const d=o.diary[p];if(d&&d.text&&d.text.includes(t))res.push({k,type:'일기 · '+S.names[p],tx:d.text})});
-  o.exp.forEach(e=>{const hay=(e.name||'')+' '+e.cat+' '+(e.sub||'')+' '+payLabel(e)+' '+((e.place&&e.place.name)||'');
-   if(hay.includes(t))res.push({k,type:'지출 · '+byName(e.by),tx:`${e.name||e.cat} · ${comma(e.a)}원 · ${e.cat}${e.sub?' › '+e.sub:''}${e.place?' · 📍'+e.place.name:''}`})});
-  o.places.forEach(p=>{if((p.n||p.name||'').includes(t))res.push({k,type:'장소',tx:(p.n||p.name)+' '+(p.c||'')})});
- })}
- const mark=s=>t?esc(s).replace(new RegExp(t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'g'),m=>`<span class="hl">${m}</span>`):esc(s);
- return `<div class="card" style="display:flex;align-items:center;gap:9px;padding:12px 14px">
+V.search=()=>`
+ <div class="card" style="display:flex;align-items:center;gap:9px;padding:12px 14px">
    <svg viewBox="0 0 24 24" style="width:17px;height:17px;stroke:#A2909A;fill:none;stroke-width:2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-   <input class="in" style="border:0;padding:0;font-size:14px" id="sq" placeholder="일기 · 지출 · 장소 · 카드사 검색" value="${esc(q)}" oninput="q=this.value;renderKeep()"></div>
- ${t?`<div style="font-size:11.5px;color:var(--sub);padding:2px 4px 8px;font-weight:700">결과 ${res.length}건</div>`:''}
- ${res.map(r=>{const d=parse(r.k);return `<div class="card" style="cursor:pointer;padding:12px" onclick="openDay('${r.k}')">
-   <div style="font-size:11px;color:var(--sub);margin-bottom:5px;font-weight:700">${esc(r.type)} · ${d.getMonth()+1}월 ${d.getDate()}일</div>
-   <div style="font-size:12.5px;line-height:1.6">${mark(r.tx.slice(0,110))}${r.tx.length>110?'…':''}</div></div>`}).join('')}
- ${t&&!res.length?`<div class="card" style="text-align:center;padding:30px"><div style="font-size:26px">🔍</div>
-   <div style="font-size:12.5px;color:var(--sub);margin-top:9px;font-weight:600">검색 결과가 없어요</div></div>`:''}`;
-};
+   <input class="in" style="border:0;padding:0;font-size:14px" id="sq" placeholder="일기 · 지출 · 장소 · 카드사 검색" value="${esc(q)}"
+     autocomplete="off" autocapitalize="off" spellcheck="false"
+     oninput="q=this.value;drawSearch()"
+     oncompositionend="q=this.value;drawSearch()"></div>
+ <div id="sres"></div>`;
+
+function searchResults(t){
+ const res=[];
+ if(!t)return res;
+ Object.keys(S.days).sort().reverse().forEach(k=>{const o=S.days[k];
+  ['me','you'].forEach(p=>{const d=o.diary[p];if(d&&d.text&&d.text.includes(t))res.push({k,type:'일기 · '+S.names[p],tx:d.text})});
+  (o.exp||[]).forEach(e=>{const hay=(e.name||'')+' '+e.cat+' '+(e.sub||'')+' '+payLabel(e)+' '+((e.place&&e.place.name)||'');
+   if(hay.includes(t))res.push({k,type:'지출 · '+byName(e.by),tx:`${e.name||e.cat} · ${comma(e.a)}원 · ${e.cat}${e.sub?' › '+e.sub:''}${e.place?' · 📍'+e.place.name:''}`})});
+  (o.places||[]).forEach(p=>{if((p.n||p.name||'').includes(t))res.push({k,type:'장소',tx:(p.n||p.name)+' '+(p.c||'')})});
+ });
+ return res;
+}
+function drawSearch(){
+ const box=document.getElementById('sres'); if(!box)return;
+ const t=(q||'').trim();
+ if(!t){box.innerHTML=`<div class="card" style="text-align:center;padding:30px"><div style="font-size:26px">💗</div>
+   <div style="font-size:12.5px;color:var(--sub);margin-top:9px;font-weight:600">일기 내용, 가게 이름, 카드사 무엇이든 찾을 수 있어요</div></div>`;return}
+ const res=searchResults(t);
+ const rx=new RegExp(t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'g');
+ const mark=x=>esc(x).replace(rx,m=>`<span class="hl">${m}</span>`);
+ box.innerHTML=`<div style="font-size:11.5px;color:var(--sub);padding:2px 4px 8px;font-weight:700">결과 ${res.length}건</div>`+
+  (res.length?res.map(r=>{const d=parse(r.k);return `<div class="card" style="cursor:pointer;padding:12px" onclick="openDay('${r.k}')">
+    <div style="font-size:11px;color:var(--sub);margin-bottom:5px;font-weight:700">${esc(r.type)} · ${d.getMonth()+1}월 ${d.getDate()}일</div>
+    <div style="font-size:12.5px;line-height:1.6">${mark(r.tx.slice(0,110))}${r.tx.length>110?'…':''}</div></div>`}).join('')
+  :`<div class="card" style="text-align:center;padding:30px"><div style="font-size:26px">🔍</div>
+    <div style="font-size:12.5px;color:var(--sub);margin-top:9px;font-weight:600">검색 결과가 없어요</div></div>`);
+}
 
 /* ================= 액션 ================= */
 function mv(n){cur=new Date(cur.getFullYear(),cur.getMonth()+n,1);render()}
@@ -1092,11 +1108,7 @@ function render(){
  document.getElementById('tb').innerHTML=TABS.map(t2=>
   `<button class="${t2[0]===act?'on':''}" onclick="go('${t2[0]}')"><svg viewBox="0 0 24 24">${t2[2]}</svg><span>${t2[1]}</span></button>`).join('');
  hydrate();
-}
-function renderKeep(){
- const el=document.getElementById('sq'),p=el?el.selectionStart:0;
- render();
- const n=document.getElementById('sq');if(n){n.focus();n.setSelectionRange(p,p)}
+ if(view==='search'){drawSearch();const el=document.getElementById('sq');if(el)el.focus()}
 }
 document.getElementById('bk').onclick=()=>go(PARENT[view]||'cal');
 document.getElementById('sbtn').onclick=()=>{q='';go('search')};
