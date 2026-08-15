@@ -395,7 +395,10 @@ const DEF={
  budget:{monthly:0,cats:{},alertPct:80},
  events:[], anniv:[], tasks:[], shop:[], goals:[], memos:[], trips:[], fixed:[], bucket:[], body:[],
  loc:{on:false,home:null,going:false,me:null,you:null,safeR:300}, notif:false,
- placeMeta:{}, photoMeta:{}, tags:[], tagStats:{}, settle:{me:50}, notiRead:[],
+ placeMeta:{}, photoMeta:{}, tags:[], tagStats:{}, files:{},
+ storage:{provider:'supabase',bucket:'photos',migrating:false},
+ imgq:'std', gphotos:{clientId:''}, fileHash:{},
+ settle:{me:50}, notiRead:[],
  kakaoKey:'50715f43acb2fcfc6566878f03bdf09f',
  v:2,
  days:{}
@@ -448,7 +451,13 @@ function migrate(){
  if(!S.anniv.length&&S.since)S.anniv.push({id:'an-since',title:'함께한 날',date:S.since,type:'count',icon:'❤️'});
  syncSinceAnniv();
  migTags();
- if(S.v!==4){S.v=4;save()}
+ if(!S.files||typeof S.files!=='object')S.files={};
+ if(!S.storage||typeof S.storage!=='object')S.storage=defStorage();
+ if(!S.storage.bucket)S.storage.bucket='photos';
+ if(!QOPT[S.imgq])S.imgq='std';
+ if(!S.gphotos||typeof S.gphotos!=='object')S.gphotos={clientId:''};
+ if(!S.fileHash||typeof S.fileHash!=='object')S.fileHash={};
+ if(S.v!==5){S.v=5;save();setTimeout(()=>{backfillFiles().catch(()=>{})},1200)}
 }
 let saveT=null;
 function save(){clearTimeout(saveT);saveT=setTimeout(()=>{try{recountTags()}catch(_){}try{DB.set('state',JSON.stringify(S))}catch(_){}},180);try{syncSoon()}catch(_){}}
@@ -587,7 +596,7 @@ function diagBox(){
 let view='home', cur=new Date(), selDate=key(new Date()), q='', filt='all', ledOpen=null, mapFilt='all', catTab='out';
 const PARENT={day:'cal',search:'home',set:'more',cards:'set',cats:'set',favs:'set',sync:'set',
  noti:'more',anniv:'more',life:'more',goals:'more',trip:'more',budget:'more',fixed:'more',
- settle:'more',list:'more',album:'more',stats:'more',bucket:'more',xls:'more',body:'more',loc:'more',alarm:'more',tags:'more',tag:'tags'};
+ settle:'more',list:'more',album:'more',stats:'more',bucket:'more',xls:'more',storage:'more',body:'more',loc:'more',alarm:'more',tags:'more',tag:'tags',gset:'more'};
 
 /* ================= 화면 ================= */
 const V={};
@@ -642,7 +651,8 @@ V.day=()=>{
    <div class="wxrow">${WX.map(w=>`<div class="wx1 ${o.wx===w?'on':''}" onclick="setWx('${w}')">${w}</div>`).join('')}</div></div>
  <div class="photos">
    ${o.photos.map(id=>`<div class="p" data-ph="${id}" onclick="photoSheet('${id}')"><b onclick="event.stopPropagation();delPhoto('${id}')">×</b>
-     ${((S.photoMeta||{})[id]||{}).tags&&S.photoMeta[id].tags.length?`<i style="position:absolute;left:5px;bottom:5px;font-size:9px;font-weight:800;background:rgba(0,0,0,.45);color:#fff;padding:2px 6px;border-radius:8px;font-style:normal">#${S.photoMeta[id].tags.length}</i>`:''}</div>`).join('')}
+     ${((S.photoMeta||{})[id]||{}).tags&&S.photoMeta[id].tags.length?`<i style="position:absolute;left:5px;bottom:5px;font-size:9px;font-weight:800;background:rgba(0,0,0,.45);color:#fff;padding:2px 6px;border-radius:8px;font-style:normal">#${S.photoMeta[id].tags.length}</i>`:''}
+     ${(fileMeta(id)||{}).source==='google_photos'?`<i style="position:absolute;left:5px;top:5px;font-size:10px;background:rgba(0,0,0,.45);color:#fff;padding:2px 5px;border-radius:8px;font-style:normal">☁️</i>`:''}</div>`).join('')}
    <div class="add" onclick="addPhoto()">＋</div></div>
  <div class="card">
    <div class="who"><span class="av" style="background:var(--${me})">${esc(S.names[me][0])}</span>${esc(S.names[me])}의 일기
@@ -1185,7 +1195,7 @@ function setText(v){const o=D(selDate),p=S.profile;o.diary[p]=o.diary[p]||{};o.d
 function togi(w,i){const c=S.checkItems[i];const o=D(selDate);o.chk[w][c]=!o.chk[w][c];save();render()}
 function delExp(id,k){const o=D(k);o.exp=o.exp.filter(x=>x.id!==id);save();render();toast('삭제했어요')}
 function delPlace(i){const o=D(selDate);o.places.splice(i,1);save();render()}
-async function delPhoto(id){const o=D(selDate);o.photos=o.photos.filter(x=>x!==id);await DB.del('p:'+id);delete PHOTOS[id];save();render()}
+async function delPhoto(id){const o=D(selDate);o.photos=o.photos.filter(x=>x!==id);await Storage.del(id);save();render()}
 function addPhoto(){document.getElementById('fin').click()}
 document.getElementById('fin').onchange=async e=>{
  const fs=[...e.target.files];e.target.value='';if(!fs.length)return;toast('사진 저장 중…');
@@ -2771,6 +2781,7 @@ V.more=()=>{
   ['🧾','고정비 · 반복지출','관리비 · 통신비 · 구독',"go('fixed')"],
   ['⚖️','공동지출 정산','누가 얼마를 더 냈나',"go('settle')"],
   ['📊','가계부 엑셀','엑셀로 가져오기 · 내보내기',"go('xls')"],
+  ['🖼️','사진 설정','화질 · Google Photos · 용량 정리',"go('gset')"],
   ['📔','기록 목록','날짜별 다이어리',"go('list')"],
   ['📷','추억 모아보기','월별 · 장소별 · 태그별',"go('album')"],
   ['📊','OUR DATA','우리의 기록 통계',"go('stats')"],
@@ -2796,7 +2807,11 @@ V.more=()=>{
     .map(m=>`<div class="exp" style="cursor:pointer" onclick="${m[3]}">
       <div class="ic">${m[0]}</div><div class="t"><b>${m[1]}</b><span>${m[2]}</span></div>
       <div style="color:var(--sub)">›</div></div>`).join('')}
-   <div class="exp"><div class="ic">🗄️</div><div class="t"><b>저장 방식</b>
+   <div class="exp" style="cursor:pointer" onclick="go('storage')">
+     <div class="ic">🗄️</div><div class="t"><b>파일 저장소</b>
+     <span>${comma(Storage.usage().count)}개 · ${humanSize(Storage.usage().size)}</span></div>
+     <div style="color:var(--sub)">›</div></div>
+   <div class="exp"><div class="ic">💾</div><div class="t"><b>저장 방식</b>
      <span style="color:${DB.mode==='mem'?'var(--warn)':'var(--ok)'}">${DB.mode==='idb'?'정상 (기기 저장)':DB.mode==='ls'?'정상 (간이 저장)':'저장 안 됨'}</span></div></div>
  </div>`;
 };
@@ -2917,21 +2932,34 @@ function bkAddPhoto(id){PHTARGET={type:'bucket',id};document.getElementById('fin
 async function bkPhotoDel(id,ph){
  const b=(S.bucket||[]).find(x=>x.id===id);if(!b)return;
  b.photos=(b.photos||[]).filter(x=>x!==ph);
- await DB.del('p:'+ph);delete PHOTOS[ph];
+ await Storage.del(ph);
  save();bkDetail(id);
 }
 
 /* 사진 저장 대상 분기 */
 let PHTARGET={type:'day'};
-function addPhoto(){PHTARGET={type:'day'};document.getElementById('fin').click()}
+function addPhoto(){
+ if(!gpOn()){PHTARGET={type:'day'};document.getElementById('fin').click();return}
+ sheet(`<h3>사진 추가</h3>
+  <div class="qk" style="grid-template-columns:repeat(2,1fr);gap:9px">
+    <div onclick="close_();PHTARGET={type:'day'};document.getElementById('fin').click()"><b>📷</b><span>기기 사진</span></div>
+    <div onclick="close_();gpImport()"><b>☁️</b><span>Google Photos</span></div>
+  </div>
+  <div class="btns"><button class="btn g" onclick="close_()">취소</button></div>`);
+}
 document.getElementById('fin').onchange=async e=>{
  const fs=[...e.target.files];e.target.value='';if(!fs.length)return;
  const tg=PHTARGET||{type:'day'}; PHTARGET={type:'day'};
  if(tg.type==='inbody'){ runInbodyOCR(fs[0]); return }
  toast('사진 저장 중…');
  const ids=[];
- for(const f of fs){const b=await resize(f);const id='ph'+Date.now()+Math.random().toString(36).slice(2,7);
-   await DB.set('p:'+id,(DB.mode==='idb')?b:await blob2url(b));ids.push(id)}
+ for(const f of fs){
+   const e=await encodeImg(f);
+   if(!e||!e.blob)continue;
+   ids.push(await Storage.putLocal(e.blob,null,{source:'device',original_filename:f.name||'',
+     original_width:e.sw,original_height:e.sh,w:e.w,h:e.h,
+     taken_at:f.lastModified?new Date(f.lastModified).toISOString():''}));
+ }
  if(tg.type==='bucket'){
    const bk=(S.bucket||[]).find(x=>x.id===tg.id);
    if(bk){bk.photos=(bk.photos||[]).concat(ids);save();bkDetail(tg.id);render()}
@@ -3079,7 +3107,7 @@ function bdSave(){
 }
 async function bdDel(){
  const r=(S.body||[]).find(x=>x.id===BDid);
- if(r&&r.ph){await DB.del('p:'+r.ph);delete PHOTOS[r.ph]}
+ if(r&&r.ph)await Storage.del(r.ph);
  S.body=(S.body||[]).filter(x=>x.id!==BDid);save();close_();render();toast('삭제했어요');
 }
 
@@ -3176,8 +3204,7 @@ function ocrFail(msg,file,raw){
 }
 async function ocrConfirm(got,file){
  let ph=null;
- try{const b=await resize(file);ph='ph'+Date.now()+Math.random().toString(36).slice(2,7);
-   await DB.set('p:'+ph,(DB.mode==='idb')?b:await blob2url(b));}catch(_){ph=null}
+ try{const b=await resize(file);ph=await Storage.putLocal(b)}catch(_){ph=null}
  bdSheet(null,{w:got.w,m:got.m,f:got.f,ph,who:bodyWho||S.profile});
  setTimeout(()=>{
    const s=document.getElementById('sheet'); if(!s)return;
@@ -3687,6 +3714,7 @@ function photoSheet(id){
  const m=photoMeta(id);
  sheet(`<h3>사진</h3>
  <div class="photos" style="justify-content:center"><div class="p" data-ph="${id}" style="width:190px;height:190px"></div></div>
+ <div class="card" style="margin:10px 0 0">${photoInfoRows(id)}</div>
  ${tagBox(m,'태그',phCtx)}
  <div class="btns">
    <button class="btn g" onclick="delPhoto('${id}');close_()">사진 삭제</button>
@@ -4501,6 +4529,574 @@ function xoGo(){
  });
 }
 
+
+/* ================= Storage Service Layer =================
+   DB에는 메타데이터만, 실제 파일은 Object Storage에.
+   provider 를 파일마다 기록해두므로 나중에 R2/S3 로 점진 이전이 가능합니다. */
+
+function defStorage(){return {provider:'supabase',bucket:'photos',migrating:false}}
+function fileMeta(id){return (S.files||{})[id]||null}
+
+/* 파일 메타데이터 등록 (file_id, storage_path, file_type, file_size, user_id, created_at) */
+function registerFile(id,blob,extra){
+ if(!S.files)S.files={};
+ const prov=(S.storage&&S.storage.provider)||'supabase';
+ const type=(blob&&blob.type)||'image/jpeg';
+ const ext=type.indexOf('png')>=0?'png':type.indexOf('webp')>=0?'webp':type.indexOf('video')>=0?'mp4':'jpg';
+ const sid=(S.sync&&S.sync.spaceId)||'local';
+ const m=Object.assign({
+  id, provider:prov, path:`${sid}/${id}.${ext}`,
+  type, size:(blob&&blob.size)||0,
+  owner:(S.sync&&S.sync.email)||'', slot:S.profile,
+  created_at:new Date().toISOString(), updated_at:new Date().toISOString(),
+  deleted_at:null, up:false
+ },extra||{});
+ const old=S.files[id]||{};
+ /* 이미 있는 파일은 경로·공급자·생성일을 지킨다 (이전 중에도 원래 자리에서 열려야 함) */
+ if(old.path)m.path=old.path;
+ if(old.provider)m.provider=old.provider;
+ if(old.created_at)m.created_at=old.created_at;
+ if(old.up)m.up=true;
+ if(old.size&&!m.size)m.size=old.size;
+ S.files[id]=Object.assign({},old,m);
+ return S.files[id];
+}
+function fileExt(m){const t=(m&&m.type)||'image/jpeg';
+ return t.indexOf('png')>=0?'png':t.indexOf('webp')>=0?'webp':t.indexOf('video')>=0?'mp4':'jpg'}
+function filePath(id){
+ const m=fileMeta(id);
+ if(m&&m.path)return m.path;
+ const sid=(S.sync&&S.sync.spaceId)||'local';
+ return `${sid}/${id}.jpg`;
+}
+
+/* ---- 공급자별 구현 ---- */
+const StorageProviders={
+ supabase:{
+  label:'Supabase Storage',
+  async put(id,blob,m){
+   if(!SB)return false;
+   const bucket=(S.storage&&S.storage.bucket)||'photos';
+   const {error}=await SB.storage.from(bucket).upload(m.path,blob,{upsert:true,contentType:m.type||'image/jpeg'});
+   return !error;
+  },
+  async get(id,m){
+   if(!SB)return null;
+   const bucket=(S.storage&&S.storage.bucket)||'photos';
+   const {data,error}=await SB.storage.from(bucket).download(m.path);
+   if(error||!data)return null;
+   return data;
+  },
+  async del(id,m){
+   if(!SB)return false;
+   const bucket=(S.storage&&S.storage.bucket)||'photos';
+   const {error}=await SB.storage.from(bucket).remove([m.path]);
+   return !error;
+  },
+  async url(id,m){
+   if(!SB)return null;
+   const bucket=(S.storage&&S.storage.bucket)||'photos';
+   const {data}=await SB.storage.from(bucket).createSignedUrl(m.path,3600);
+   return (data&&data.signedUrl)||null;
+  }
+ },
+ /* 앞으로 붙일 자리. 서명 URL을 내려주는 작은 서버(Edge Function)만 있으면 동작합니다. */
+ r2:{label:'Cloudflare R2', async put(){return false}, async get(){return null},
+     async del(){return false}, async url(){return null}},
+ s3:{label:'AWS S3', async put(){return false}, async get(){return null},
+     async del(){return false}, async url(){return null}}
+};
+
+const Storage={
+ provider(id){
+  const m=id?fileMeta(id):null;
+  return (m&&m.provider)||(S.storage&&S.storage.provider)||'supabase';
+ },
+ impl(name){return StorageProviders[name]||StorageProviders.supabase},
+ label(){return Storage.impl((S.storage&&S.storage.provider)||'supabase').label},
+
+ /* 기기 안에 먼저 저장 + 메타데이터 등록 (오프라인에서도 동작) */
+ async putLocal(blob,id,extra){
+  Storage.lastDup=false;
+  try{
+   const h=await blobHash(blob);
+   if(h){
+    if(!S.fileHash)S.fileHash={};
+    const old=S.fileHash[h];
+    if(old&&S.files[old]&&!S.files[old].deleted_at){Storage.lastDup=true;return old}
+    const fid0=id||('ph'+Date.now()+Math.random().toString(36).slice(2,7));
+    await DB.set('p:'+fid0,(DB.mode==='idb')?blob:await blob2url(blob));
+    registerFile(fid0,blob,Object.assign({hash:h},extra||{}));
+    S.fileHash[h]=fid0;
+    return fid0;
+   }
+  }catch(_){}
+  const fid=id||('ph'+Date.now()+Math.random().toString(36).slice(2,7));
+  await DB.set('p:'+fid,(DB.mode==='idb')?blob:await blob2url(blob));
+  registerFile(fid,blob,extra||{});
+  return fid;
+ },
+ /* 원격 업로드 (동기화 시 호출) */
+ async push(id){
+  const m=fileMeta(id)||registerFile(id,null);
+  const b=await blobOf(id);
+  if(!b)return false;
+  if(!m.size)m.size=b.size;
+  if(!m.type)m.type=b.type||'image/jpeg';
+  const ok=await Storage.impl(m.provider).put(id,b,m);
+  if(ok){m.up=true;m.updated_at=new Date().toISOString()}
+  return ok;
+ },
+ /* 원격에서 받아 기기에 캐시 */
+ async pull(id){
+  let m=fileMeta(id);
+  if(!m)m=registerFile(id,null);
+  const blob=await Storage.impl(m.provider).get(id,m);
+  if(!blob)return false;
+  await DB.set('p:'+id,(DB.mode==='idb')?blob:await blob2url(blob));
+  if(!m.size)m.size=blob.size;
+  delete PHOTOS[id];
+  return true;
+ },
+ async del(id){
+  if(typeof fileRefs==='function'&&fileRefs(id)>0)return false;
+  const m=fileMeta(id);
+  if(m&&m.hash&&S.fileHash)delete S.fileHash[m.hash];
+  await DB.del('p:'+id); delete PHOTOS[id];
+  if(m){
+   m.deleted_at=new Date().toISOString();
+   try{await Storage.impl(m.provider).del(id,m)}catch(_){}
+  }
+  return true;
+ },
+ async url(id){
+  const m=fileMeta(id); if(!m)return null;
+  try{return await Storage.impl(m.provider).url(id,m)}catch(_){return null}
+ },
+ /* 사용량 집계 */
+ usage(){
+  const f=Object.values(S.files||{}).filter(x=>x&&!x.deleted_at);
+  const byProv={};
+  let size=0;
+  f.forEach(x=>{size+=x.size||0;byProv[x.provider]=(byProv[x.provider]||0)+(x.size||0)});
+  return {count:f.length,size,byProv,up:f.filter(x=>x.up).length};
+ }
+};
+const humanSize=n=>{n=n||0;
+ if(n>=1073741824)return (n/1073741824).toFixed(2)+'GB';
+ if(n>=1048576)return (n/1048576).toFixed(1)+'MB';
+ if(n>=1024)return (n/1024).toFixed(0)+'KB';
+ return n+'B'};
+
+/* 기존 사진 → 메타데이터 채우기 (1회) */
+async function backfillFiles(){
+ if(!S.files)S.files={};
+ const ids=[];
+ Object.values(S.days||{}).forEach(d=>(d.photos||[]).forEach(id=>ids.push(id)));
+ (S.bucket||[]).forEach(b=>(b.photos||[]).forEach(id=>ids.push(id)));
+ (S.body||[]).forEach(r=>{if(r.ph)ids.push(r.ph)});
+ let n=0;
+ for(const id of ids){
+  if(S.files[id]&&S.files[id].size)continue;
+  let sz=0,type='image/jpeg';
+  try{const v=await DB.get('p:'+id);
+   if(v){ if(typeof v==='string'){sz=Math.round(v.length*0.75); const mm=v.match(/^data:([^;]+)/); if(mm)type=mm[1]}
+          else {sz=v.size||0; type=v.type||'image/jpeg'} }}catch(_){}
+  registerFile(id,{size:sz,type},{size:sz,type});
+  n++;
+ }
+ if(n)save();
+ return n;
+}
+
+/* ---- 저장소 설정 화면 ---- */
+V.storage=()=>{
+ const u=Storage.usage();
+ const provs=[['supabase','Supabase Storage'],['r2','Cloudflare R2'],['s3','AWS S3']];
+ return `
+ <div class="bs">
+   <div class="b"><span>파일</span><b>${comma(u.count)}개</b></div>
+   <div class="b"><span>용량</span><b>${humanSize(u.size)}</b></div>
+   <div class="b"><span>업로드됨</span><b>${comma(u.up)}개</b></div>
+ </div>
+ <div class="card">
+   <div class="prow" style="margin-top:0"><span style="font-weight:800">새 파일 저장소</span>
+     <span>${esc(Storage.label())}</span></div>
+   <div class="cmp">파일마다 어디에 저장됐는지 따로 기록하기 때문에, 저장소를 바꿔도 예전 사진은 원래 자리에서 그대로 열립니다.</div>
+   <div class="opts" style="margin-top:10px">
+     ${provs.map(p=>`<div class="opt sm ${(S.storage.provider||'supabase')===p[0]?'on':''}"
+       onclick="setStorageProvider('${p[0]}')">${p[1]}</div>`).join('')}</div>
+   ${(S.storage.provider||'supabase')!=='supabase'?`<div style="font-size:11.5px;color:var(--warn);font-weight:700;margin-top:9px;line-height:1.7">
+     이 저장소는 아직 연결되지 않았습니다. 서명 URL을 발급하는 서버가 준비되면 동작합니다. 지금은 Supabase로 두세요.</div>`:''}
+ </div>
+ <div class="sec">저장소별 파일</div>
+ <div class="card">
+   ${Object.keys(u.byProv).length?Object.keys(u.byProv).map(k=>`<div class="row">
+     <div class="ic">🗄️</div><div class="t"><b>${esc((StorageProviders[k]||{}).label||k)}</b>
+     <span>${humanSize(u.byProv[k])}</span></div></div>`).join('')
+   :`<div class="empty">아직 파일이 없어요</div>`}
+ </div>
+ <div class="sec">관리</div>
+ <div class="card" style="padding:6px 14px">
+   <div class="exp" style="cursor:pointer" onclick="runBackfill()">
+     <div class="ic">🧾</div><div class="t"><b>파일 정보 다시 계산</b><span>예전 사진의 용량·형식을 채웁니다</span></div>
+     <div style="color:var(--sub)">›</div></div>
+   <div class="exp" style="cursor:pointer" onclick="filesXlsx()">
+     <div class="ic">📊</div><div class="t"><b>파일 목록 내보내기</b><span>엑셀로 저장</span></div>
+     <div style="color:var(--sub)">›</div></div>
+ </div>
+ <div class="card" style="font-size:11.5px;color:var(--sub);line-height:1.75;font-weight:600">
+   데이터베이스에는 파일 자체를 넣지 않고 file_id · 경로 · 형식 · 크기 · 올린 사람 · 생성일만 저장합니다.
+   사진 원본은 Object Storage에만 있습니다.
+ </div>`;
+};
+/* 공간이 생기기 전 저장한 파일 경로(local/…)를 공간 경로로 옮겨 적는다 */
+function rebaseFiles(sid){
+ if(!sid||!S.files)return 0;
+ let n=0;
+ Object.values(S.files).forEach(m=>{
+  if(!m||!m.path)return;
+  if(m.path.indexOf('local/')===0){m.path=sid+'/'+m.path.slice(6);m.up=false;n++}
+ });
+ if(n)save();
+ return n;
+}
+function setStorageProvider(p){
+ S.storage=S.storage||defStorage();
+ S.storage.provider=p; save(); render();
+ toast(p==='supabase'?'Supabase Storage로 설정했어요':'아직 연결 전이라 새 사진은 기기에만 저장됩니다');
+}
+async function runBackfill(){
+ toast('계산 중…');
+ const n=await backfillFiles();
+ render(); toast(n?`${n}개 파일 정보를 채웠어요`:'이미 최신이에요');
+}
+function filesXlsx(){
+ loadXLSX(ok=>{
+  if(!ok)return xlFail();
+  const rows=[['file_id','provider','storage_path','file_type','file_size','올린 사람','created_at','updated_at','deleted_at','업로드됨']];
+  Object.values(S.files||{}).forEach(m=>rows.push([m.id,m.provider,m.path,m.type,m.size||0,
+    S.names[m.slot]||m.slot||'',m.created_at||'',m.updated_at||'',m.deleted_at||'',m.up?'Y':'N']));
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:24},{wch:12},{wch:34},{wch:14},{wch:12},{wch:10},{wch:22},{wch:22},{wch:22},{wch:9}];
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'files');
+  sheetToBlob(wb,'파일목록.xlsx');
+  toast('파일 목록을 저장했어요');
+ });
+}
+
+
+/* ================= 이미지 최적화 · 중복 제거 ================= */
+const QOPT={low:{max:1280,q:0.78,n:'저용량'},std:{max:1600,q:0.82,n:'기본'},high:{max:2048,q:0.86,n:'고화질'}};
+let WEBP_OK=null;
+function webpOK(){
+ if(WEBP_OK!==null)return WEBP_OK;
+ try{const c=document.createElement('canvas');c.width=c.height=2;
+  WEBP_OK=c.toDataURL('image/webp').indexOf('data:image/webp')===0}catch(_){WEBP_OK=false}
+ return WEBP_OK;
+}
+function imgQ(){return QOPT[S.imgq]||QOPT.std}
+/* 이미지 인코딩 — WebP 우선, 미지원이면 JPEG */
+function encodeImg(file,opt){
+ const o=Object.assign({},imgQ(),opt||{});
+ return new Promise(res=>{
+  const img=new Image(), fr=new FileReader();
+  fr.onload=()=>{img.onload=()=>{
+    const sw=img.width, sh=img.height;
+    const s=Math.min(1,o.max/Math.max(sw,sh));
+    const c=document.createElement('canvas');
+    c.width=Math.max(1,sw*s|0); c.height=Math.max(1,sh*s|0);
+    const x=c.getContext('2d');
+    x.imageSmoothingEnabled=true; x.imageSmoothingQuality='high';
+    x.drawImage(img,0,0,c.width,c.height);
+    const type=(o.type)||(webpOK()?'image/webp':'image/jpeg');
+    c.toBlob(b=>{
+      if(!b&&type!=='image/jpeg'){c.toBlob(b2=>res({blob:b2,w:c.width,h:c.height,sw,sh}),'image/jpeg',o.q);return}
+      res({blob:b,w:c.width,h:c.height,sw,sh});
+    },type,o.q);
+   };
+   img.onerror=()=>res(null);
+   img.src=fr.result};
+  fr.onerror=()=>res(null);
+  fr.readAsDataURL(file);
+ });
+}
+/* 기존 호출부 호환 */
+function resize(file){return encodeImg(file).then(r=>r&&r.blob)}
+
+/* 내용 해시 (같은 사진 두 번 저장 방지) */
+async function blobHash(blob){
+ try{
+  const buf=await blob.arrayBuffer();
+  const v=new Uint8Array(buf);
+  let h1=0x811c9dc5, h2=0x01000193;
+  const step=Math.max(1,Math.floor(v.length/40000));
+  for(let i=0;i<v.length;i+=step){
+   h1=((h1^v[i])*16777619)>>>0;
+   h2=((h2+v[i]*31)^(h2<<5))>>>0;
+  }
+  return blob.size.toString(36)+'-'+h1.toString(36)+h2.toString(36);
+ }catch(_){return null}
+}
+/* 파일 참조 수 (다른 곳에서 쓰고 있으면 지우지 않는다) */
+function fileRefs(id){
+ let n=0;
+ Object.values(S.days||{}).forEach(d=>(d.photos||[]).forEach(x=>{if(x===id)n++}));
+ (S.bucket||[]).forEach(b=>(b.photos||[]).forEach(x=>{if(x===id)n++}));
+ (S.body||[]).forEach(r=>{if(r.ph===id)n++});
+ return n;
+}
+/* 어디에서도 쓰지 않는 사진 찾기 */
+function orphanFiles(){
+ const used=new Set();
+ Object.values(S.days||{}).forEach(d=>(d.photos||[]).forEach(x=>used.add(x)));
+ (S.bucket||[]).forEach(b=>(b.photos||[]).forEach(x=>used.add(x)));
+ (S.body||[]).forEach(r=>{if(r.ph)used.add(r.ph)});
+ return Object.values(S.files||{}).filter(m=>m&&!m.deleted_at&&!used.has(m.id));
+}
+async function cleanOrphans(){
+ const L=orphanFiles();
+ if(!L.length){toast('정리할 사진이 없어요');return 0}
+ for(const m of L){await Storage.del(m.id); delete S.files[m.id]}
+ save(); render(); toast(`${L.length}장 정리했어요`);
+ return L.length;
+}
+
+/* ================= 사진 상세 정보 ================= */
+const SRCN={device:'기기 사진',google_photos:'Google Photos'};
+const SRCI={device:'📷',google_photos:'☁️'};
+function photoInfoRows(id){
+ const m=fileMeta(id)||{};
+ const R=[['출처',(SRCI[m.source||'device']||'📷')+' '+(SRCN[m.source||'device']||'기기 사진')]];
+ if(m.original_filename)R.push(['파일명',m.original_filename]);
+ if(m.taken_at)R.push(['촬영일',String(m.taken_at).slice(0,10).replace(/-/g,'.')]);
+ if(m.original_width)R.push(['원본 크기',m.original_width+' × '+m.original_height]);
+ if(m.w)R.push(['앱 저장 크기',m.w+' × '+m.h]);
+ R.push(['용량',humanSize(m.size)]);
+ R.push(['형식',(m.type||'').replace('image/','').toUpperCase()]);
+ if(m.google_media_id)R.push(['Google 미디어 ID',String(m.google_media_id).slice(0,14)+'…']);
+ return R.map(r=>`<div class="prow"><span>${esc(r[0])}</span><span>${esc(r[1])}</span></div>`).join('');
+}
+
+/* ================= Google Photos 가져오기 ================= */
+const GP_SCOPE='https://www.googleapis.com/auth/photospicker.mediaitems.readonly';
+let GPTOKEN=null, GPSESSION=null, GPSTOP=false, GISLOADED=false;
+function gpOn(){return !!(S.gphotos&&S.gphotos.clientId)}
+function loadGIS(cb){
+ if(window.google&&google.accounts&&google.accounts.oauth2)return cb(true);
+ if(GISLOADED){setTimeout(()=>cb(!!(window.google&&google.accounts)),1200);return}
+ GISLOADED=true;
+ const s=document.createElement('script');
+ s.src='https://accounts.google.com/gsi/client';
+ s.onload=()=>cb(!!(window.google&&google.accounts&&google.accounts.oauth2));
+ s.onerror=()=>cb(false);
+ document.head.appendChild(s);
+}
+function gpAuth(){
+ return new Promise(res=>{
+  loadGIS(ok=>{
+   if(!ok)return res(null);
+   try{
+    const tc=google.accounts.oauth2.initTokenClient({
+     client_id:S.gphotos.clientId, scope:GP_SCOPE,
+     callback:t=>res((t&&t.access_token)||null),
+     error_callback:()=>res(null)
+    });
+    tc.requestAccessToken();
+   }catch(_){res(null)}
+  });
+ });
+}
+const GPAPI='https://photospicker.googleapis.com/v1';
+async function gpFetch(path,opt){
+ const r=await fetch(GPAPI+path,Object.assign({headers:{
+   'Authorization':'Bearer '+GPTOKEN,'Content-Type':'application/json'}},opt||{}));
+ if(!r.ok){const t=await r.text().catch(()=>'');throw new Error(r.status+' '+t.slice(0,140))}
+ return r.status===204?{}:await r.json();
+}
+function gpStep(msg,pct){
+ const a=document.getElementById('gpp'), b=document.getElementById('gpb');
+ if(a)a.innerHTML=msg; if(b&&pct!=null)b.style.width=Math.max(3,Math.min(100,pct))+'%';
+}
+function gpPanel(title,body,btns){
+ sheet(`<h3>${title}</h3>
+  <div style="text-align:center;padding:16px 6px">${body}</div>
+  <div class="btns">${btns||'<button class="btn p" onclick="gpCancel()">닫기</button>'}</div>`);
+}
+function gpCancel(){GPSTOP=true;close_()}
+
+async function gpImport(){
+ if(!gpOn())return gpSetup();
+ GPSTOP=false;
+ gpPanel('Google Photos',
+  `<div style="font-size:30px">☁️</div>
+   <div id="gpp" style="font-size:12.5px;font-weight:800;margin-top:10px">Google 계정 확인 중…</div>
+   <div class="pg" style="margin-top:14px"><i id="gpb" style="width:5%"></i></div>
+   <div style="font-size:11px;color:var(--sub);margin-top:10px;font-weight:600;line-height:1.7">
+     사진은 고르는 즉시 앱 형식으로 줄여 저장됩니다. 원본은 Google Photos에 그대로 남습니다.</div>`,
+  `<button class="btn g" onclick="gpCancel()">취소</button>`);
+ try{
+  GPTOKEN=await gpAuth();
+  if(!GPTOKEN)return gpErr('Google 로그인이 취소되었거나 실패했어요');
+  gpStep('선택 창 여는 중…',12);
+  const ses=await gpFetch('/sessions',{method:'POST',body:'{}'});
+  GPSESSION=ses;
+  const w=window.open(ses.pickerUri,'_blank');
+  if(!w)return gpErr('팝업이 차단되었어요. 브라우저에서 팝업을 허용해주세요');
+  gpStep('Google Photos에서 사진을 고르고 완료를 눌러주세요<br><span style="font-size:11px;color:var(--sub)">고르면 여기로 자동으로 돌아옵니다</span>',22);
+  const t0=Date.now();
+  let picked=null;
+  while(!GPSTOP){
+   const wait=Math.max(2000,parseFloat(((ses.pollingConfig||{}).pollInterval||'3s'))*1000||3000);
+   await new Promise(r=>setTimeout(r,wait));
+   if(GPSTOP)return;
+   let st;
+   try{st=await gpFetch('/sessions/'+encodeURIComponent(ses.id))}
+   catch(e){return gpErr('세션 확인 실패: '+e.message)}
+   if(st.mediaItemsSet){picked=st;break}
+   if(Date.now()-t0>10*60*1000)return gpErr('시간이 초과되었어요. 다시 시도해주세요');
+  }
+  if(GPSTOP)return;
+  gpStep('고른 사진 목록 받는 중…',34);
+  let items=[],pageToken='';
+  do{
+   const q='/mediaItems?sessionId='+encodeURIComponent(ses.id)+'&pageSize=100'+(pageToken?'&pageToken='+pageToken:'');
+   const r=await gpFetch(q);
+   items=items.concat(r.mediaItems||[]);
+   pageToken=r.nextPageToken||'';
+  }while(pageToken&&items.length<300);
+  if(!items.length)return gpErr('고른 사진이 없어요');
+
+  const q=imgQ();
+  const o=D(selDate);
+  let done=0, failed=0, dup=0, bytes=0;
+  for(const it of items){
+   if(GPSTOP)break;
+   done++;
+   gpStep(`가져오는 중 ${done} / ${items.length}`,34+done/items.length*60);
+   try{
+    const mf=it.mediaFile||{};
+    if(!mf.baseUrl){failed++;continue}
+    const url=mf.baseUrl+'=w'+q.max+'-h'+q.max;
+    const rs=await fetch(url,{headers:{'Authorization':'Bearer '+GPTOKEN}});
+    if(!rs.ok){failed++;continue}
+    const raw=await rs.blob();
+    const enc=await encodeImg(new File([raw],mf.filename||'photo.jpg',{type:raw.type||'image/jpeg'}));
+    if(!enc||!enc.blob){failed++;continue}
+    const md=mf.mediaFileMetadata||{};
+    const id=await Storage.putLocal(enc.blob,null,{
+      source:'google_photos', google_media_id:it.id,
+      google_session_id:ses.id,
+      original_filename:mf.filename||'', original_width:md.width||enc.sw, original_height:md.height||enc.sh,
+      taken_at:it.createTime||'', w:enc.w, h:enc.h
+    });
+    if(Storage.lastDup)dup++; else bytes+=enc.blob.size;
+    if(!o.photos.includes(id))o.photos.push(id);
+   }catch(_){failed++}
+  }
+  try{await gpFetch('/sessions/'+encodeURIComponent(ses.id),{method:'DELETE'})}catch(_){}
+  GPTOKEN=null; GPSESSION=null;
+  save(); render();
+  gpPanel('가져오기 완료',
+   `<div style="font-size:30px">🎉</div>
+    <div class="bs" style="margin-top:12px">
+      <div class="b"><span>가져옴</span><b style="color:var(--ok)">${done-failed-dup}장</b></div>
+      <div class="b"><span>이미 있음</span><b>${dup}장</b></div>
+      <div class="b"><span>실패</span><b style="color:${failed?'var(--warn)':'var(--sub)'}">${failed}장</b></div>
+    </div>
+    <div style="font-size:11.5px;color:var(--sub);margin-top:10px;font-weight:600">앱에 저장된 용량 ${humanSize(bytes)}</div>`,
+   `<button class="btn p" onclick="close_()">확인</button>`);
+ }catch(e){
+  const m=String(e&&e.message||e);
+  if(/Failed to fetch|NetworkError|CORS/i.test(m))
+   return gpErr('브라우저에서 Google 사진을 직접 받지 못했어요 (CORS 차단).<br>중계 서버가 필요합니다. 설정 화면 안내를 참고해주세요');
+  gpErr('오류: '+m.slice(0,120));
+ }
+}
+function gpErr(msg){
+ try{if(GPSESSION&&GPTOKEN)gpFetch('/sessions/'+encodeURIComponent(GPSESSION.id),{method:'DELETE'}).catch(()=>{})}catch(_){}
+ GPTOKEN=null;GPSESSION=null;
+ gpPanel('가져오지 못했어요',
+  `<div style="font-size:28px">😢</div>
+   <div style="font-size:12.5px;font-weight:800;margin-top:9px;line-height:1.7">${msg}</div>
+   <div style="font-size:11px;color:var(--sub);margin-top:10px;font-weight:600;line-height:1.7">
+     이미 가져온 사진과 다이어리 내용에는 영향이 없습니다.</div>`,
+  `<button class="btn g" onclick="go('gset');close_()">설정 보기</button>
+   <button class="btn p" onclick="close_()">닫기</button>`);
+}
+function gpSetup(){
+ sheet(`<h3>Google Photos 연결</h3>
+ <div style="font-size:11.5px;color:var(--sub);line-height:1.8;font-weight:600">
+  Google Cloud에서 OAuth 클라이언트 ID를 하나 만들어 넣으면 Google Photos에서 바로 사진을 고를 수 있어요.<br><br>
+  1. console.cloud.google.com 접속 후 프로젝트 만들기<br>
+  2. API 및 서비스 → 라이브러리 → Photos Picker API 사용 설정<br>
+  3. OAuth 동의 화면 → 외부 → 테스트 사용자에 두 분 이메일 추가<br>
+  4. 사용자 인증 정보 → OAuth 클라이언트 ID → 웹 애플리케이션<br>
+  5. 승인된 자바스크립트 원본에 <b>${esc(SITE)}</b> 추가<br>
+  6. 만들어진 클라이언트 ID를 아래에 붙여넣기
+ </div>
+ <div class="fl">OAuth 클라이언트 ID</div>
+ <input class="in" id="gpc" placeholder="000000-xxxx.apps.googleusercontent.com" value="${esc((S.gphotos&&S.gphotos.clientId)||'')}">
+ <div class="btns"><button class="btn g" onclick="close_()">취소</button>
+ <button class="btn p" onclick="saveGpClient()">저장</button></div>`);
+}
+function saveGpClient(){
+ const v=(document.getElementById('gpc')||{}).value||'';
+ S.gphotos=S.gphotos||{}; S.gphotos.clientId=v.trim();
+ save(); close_(); render();
+ toast(v.trim()?'저장했어요':'연결을 해제했어요');
+}
+
+/* ================= 사진 설정 화면 ================= */
+V.gset=()=>{
+ const u=Storage.usage();
+ const orph=orphanFiles();
+ const g=Object.values(S.files||{}).filter(m=>m&&!m.deleted_at&&m.source==='google_photos').length;
+ return `
+ <div class="bs">
+   <div class="b"><span>사진</span><b>${comma(u.count)}장</b></div>
+   <div class="b"><span>용량</span><b>${humanSize(u.size)}</b></div>
+   <div class="b"><span>장당 평균</span><b>${u.count?humanSize(Math.round(u.size/u.count)):'-'}</b></div>
+ </div>
+ <div class="sec">저장 화질</div>
+ <div class="card">
+   <div class="seg">
+     ${Object.keys(QOPT).map(k=>`<div class="sg ${(S.imgq||'std')===k?'on':''}" onclick="S.imgq='${k}';save();render()">${QOPT[k].n}</div>`).join('')}
+   </div>
+   <div class="cmp">${imgQ().n} · 긴 변 ${imgQ().max}px · 품질 ${imgQ().q}
+     ${webpOK()?' · WebP':' · JPEG'}</div>
+   <div style="font-size:11.5px;color:var(--sub);line-height:1.75;font-weight:600;margin-top:9px">
+     이 기기는 ${webpOK()?'WebP를 지원해 같은 화질에서 용량이 약 37% 작습니다':'WebP를 지원하지 않아 JPEG으로 저장합니다'}.
+     다이어리에서 보기에는 기본(1600px)이면 충분합니다.</div>
+ </div>
+ <div class="sec">Google Photos에서 가져오기</div>
+ <div class="card">
+   <div class="prow" style="margin-top:0"><span style="font-weight:800">연결 상태</span>
+     <span style="color:${gpOn()?'var(--ok)':'var(--sub)'}">${gpOn()?'연결됨':'꺼짐'}</span></div>
+   <div class="cmp">Google Photos에서 사진을 고르면 앱 형식으로 줄여 저장합니다.
+     원본은 Google Photos에 그대로 남고, 저장된 사진은 연결을 끊어도 계속 보입니다.</div>
+   ${g?`<div class="prow"><span>가져온 사진</span><span>${comma(g)}장</span></div>`:''}
+   <div style="display:flex;gap:7px;margin-top:10px">
+     <button class="btn g" style="padding:12px;font-size:12.5px" onclick="gpSetup()">${gpOn()?'설정 변경':'연결하기'}</button>
+     ${gpOn()?`<button class="btn p" style="padding:12px;font-size:12.5px" onclick="selDate=today();gpImport()">지금 가져오기</button>`:''}
+   </div>
+ </div>
+ <div class="sec">용량 정리</div>
+ <div class="card" style="padding:6px 14px">
+   <div class="exp" style="cursor:pointer" onclick="cleanOrphans()">
+     <div class="ic">🧹</div><div class="t"><b>안 쓰는 사진 정리</b>
+     <span>${orph.length?`${orph.length}장 · ${humanSize(orph.reduce((a,b)=>a+(b.size||0),0))} 회수 가능`:'정리할 사진 없음'}</span></div>
+     <div style="color:var(--sub)">›</div></div>
+   <div class="exp" style="cursor:pointer" onclick="go('storage')">
+     <div class="ic">🗄️</div><div class="t"><b>파일 저장소</b><span>공급자 · 파일 목록</span></div>
+     <div style="color:var(--sub)">›</div></div>
+ </div>
+ <div class="card" style="font-size:11.5px;color:var(--sub);line-height:1.75;font-weight:600">
+   같은 사진을 두 번 넣으면 한 번만 저장하고 재사용합니다.
+   Google Photos의 임시 이미지 주소는 저장하지 않으며, 사진 표시는 항상 앱에 저장된 파일만 사용합니다.
+ </div>`;
+};
+
 /* ================= 빠른 추가 ================= */
 function quickAdd(){
  sheet(`<h3>무엇을 기록할까요</h3>
@@ -4564,6 +5160,7 @@ const TITLE=()=>({
  body:['인바디 기록','체중 · 골격근량 · 체지방량'], loc:['위치 공유','귀가 · 안심 알림'],
  alarm:['알림 설정','기기 알림 켜기'],
  tags:['태그 관리','앱 전체를 잇는 태그'], xls:['가계부 엑셀','가져오기 · 내보내기'],
+ storage:['파일 저장소','사진 · 첨부 관리'], gset:['사진 설정','화질 · Google Photos · 정리'],
  tag:[openTagId?'#'+tagName(openTagId):'태그','이 태그가 붙은 모든 기록']
 }[view]||['','']);
 
@@ -4674,28 +5271,61 @@ function buildRecords(){
   const d=S.days[day]; if(!d)return;
   if(d.wx)out['dm_'+day]={id:'dm_'+day,kind:'daymeta',day,slot:null,data:{wx:d.wx}};
   ['me','you'].forEach(sl=>{const x=(d.diary||{})[sl];
-   if(x&&(x.text||x.mood))out[`di_${day}_${sl}`]={id:`di_${day}_${sl}`,kind:'diary',day,slot:sl,data:{text:x.text||'',mood:x.mood||null}}});
+   if(x&&(x.text||x.mood||x.title||(x.tags||[]).length))out[`di_${day}_${sl}`]={id:`di_${day}_${sl}`,kind:'diary',day,slot:sl,
+     data:{text:x.text||'',mood:x.mood||null,title:x.title||'',tags:x.tags||[]}}});
   (d.exp||[]).forEach(e=>{if(e&&e.id)out[e.id]={id:e.id,kind:'expense',day,slot:e.by||'me',data:e}});
   ['me','you'].forEach(sl=>{const c=(d.chk||{})[sl]||{};
    const on=Object.keys(c).filter(k=>c[k]);
    if(on.length)out[`ck_${day}_${sl}`]={id:`ck_${day}_${sl}`,kind:'check',day,slot:sl,data:{items:on}}});
   if((d.places||[]).length)out['pp_'+day]={id:'pp_'+day,kind:'places',day,slot:null,data:{list:d.places}};
-  (d.photos||[]).forEach(pid=>{out[pid]={id:pid,kind:'photo',day,slot:null,data:{}}});
+  (d.photos||[]).forEach(pid=>{out[pid]={id:pid,kind:'photo',day,slot:(fileMeta(pid)||{}).slot||null,data:fileMetaRec(pid)}});
  });
  return out;
 }
 const sigOf=r=>JSON.stringify(r.data);
+/* DB에 넣을 파일 메타데이터 (파일 자체는 넣지 않음) */
+function fileMetaRec(id){
+ const m=fileMeta(id)||{};
+ return {p:m.provider||'supabase',path:m.path||filePath(id),t:m.type||'image/jpeg',
+   sz:m.size||0,own:m.slot||'',ca:m.created_at||'',
+   src:m.source||'device',gid:m.google_media_id||'',fn:m.original_filename||'',
+   ow:m.original_width||0,oh:m.original_height||0,ta:m.taken_at||'',w:m.w||0,h:m.h||0,hs:m.hash||''};
+}
+function applyFileMeta(id,data){
+ if(!data||typeof data!=='object')return;
+ if(!S.files)S.files={};
+ const m=S.files[id]||{id};
+ if(data.p)m.provider=data.p;
+ if(data.path)m.path=data.path;
+ if(data.t)m.type=data.t;
+ if(data.sz)m.size=data.sz;
+ if(data.own)m.slot=data.own;
+ if(data.ca)m.created_at=data.ca;
+ if(data.src)m.source=data.src;
+ if(data.gid)m.google_media_id=data.gid;
+ if(data.fn)m.original_filename=data.fn;
+ if(data.ow)m.original_width=data.ow;
+ if(data.oh)m.original_height=data.oh;
+ if(data.ta)m.taken_at=data.ta;
+ if(data.w)m.w=data.w;
+ if(data.h)m.h=data.h;
+ if(data.hs){m.hash=data.hs;if(!S.fileHash)S.fileHash={};S.fileHash[data.hs]=id}
+ m.up=true; m.deleted_at=null;
+ S.files[id]=m;
+}
 
 function applyRecord(r){
  if(r.deleted)return removeRecord(r);
  const d=D(r.day);
  if(r.kind==='daymeta')d.wx=(r.data||{}).wx||null;
- else if(r.kind==='diary'){d.diary[r.slot]=d.diary[r.slot]||{};d.diary[r.slot].text=r.data.text||'';d.diary[r.slot].mood=r.data.mood||null}
+ else if(r.kind==='diary'){d.diary[r.slot]=d.diary[r.slot]||{};d.diary[r.slot].text=r.data.text||'';d.diary[r.slot].mood=r.data.mood||null;
+   d.diary[r.slot].title=r.data.title||'';d.diary[r.slot].tags=r.data.tags||[]}
  else if(r.kind==='expense'){const e=Object.assign({},r.data);e.id=r.id;
   const i=d.exp.findIndex(x=>x.id===r.id); if(i>=0)d.exp[i]=e; else d.exp.push(e)}
  else if(r.kind==='check'){const set={};(r.data.items||[]).forEach(k=>set[k]=true);d.chk[r.slot]=set}
  else if(r.kind==='places')d.places=r.data.list||[];
- else if(r.kind==='photo'){if(!d.photos.includes(r.id))d.photos.push(r.id);PHOTO_WANT.add(r.id)}
+ else if(r.kind==='photo'){if(!d.photos.includes(r.id))d.photos.push(r.id);
+   applyFileMeta(r.id,r.data);PHOTO_WANT.add(r.id)}
 }
 function removeRecord(r){
  const d=S.days[r.day]; if(!d)return;
@@ -4707,7 +5337,7 @@ function removeRecord(r){
  else if(r.kind==='places')d.places=[];
 }
 const SETKEYS=['names','since','checkItems','cats','incomeCats','pay','budget','favPlaces',
- 'events','anniv','tasks','shop','goals','memos','trips','fixed','bucket','body','loc','placeMeta','photoMeta','tags','tagStats','settle'];
+ 'events','anniv','tasks','shop','goals','memos','trips','fixed','bucket','body','loc','placeMeta','photoMeta','tags','tagStats','settle','storage','imgq','gphotos'];
 function pickSettings(){const o={};SETKEYS.forEach(k=>o[k]=S[k]);return o}
 function applySettings(o){if(!o)return;SETKEYS.forEach(k=>{if(o[k]!==undefined)S[k]=o[k]})}
 
@@ -4718,12 +5348,7 @@ async function blobOf(id){
  const res=await fetch(v); return await res.blob();
 }
 async function pullPhoto(id){
- try{
-  const {data,error}=await SB.storage.from('photos').download(`${S.sync.spaceId}/${id}.jpg`);
-  if(error||!data)return false;
-  await DB.set('p:'+id,(DB.mode==='idb')?data:await blob2url(data));
-  delete PHOTOS[id]; return true;
- }catch(_){return false}
+ try{return await Storage.pull(id)}catch(_){return false}
 }
 
 /* ---- 동기화 ---- */
@@ -4755,16 +5380,16 @@ async function syncNow(manual){
   const cur=buildRecords(), ups=[], now=new Date().toISOString();
   Object.values(cur).forEach(r=>{
    const old=S.sync.sig[r.id];
-   if(!old||old.s!==sigOf(r))ups.push({id:r.id,space_id:sid,kind:r.kind,day:r.day,slot:r.slot,data:r.data,deleted:false,updated_at:now});
+   if(!old||old.s!==sigOf(r))ups.push({id:r.id,space_id:sid,kind:r.kind,day:r.day,slot:r.slot,data:r.data,deleted:false,deleted_at:null,updated_at:now});
   });
   Object.keys(S.sync.sig).forEach(id=>{
    const m=S.sync.sig[id];
-   if(!cur[id]&&m&&m.s!=='DEL')ups.push({id,space_id:sid,kind:m.kind,day:m.day,slot:m.slot,data:{},deleted:true,updated_at:now});
+   if(!cur[id]&&m&&m.s!=='DEL')ups.push({id,space_id:sid,kind:m.kind,day:m.day,slot:m.slot,data:{},deleted:true,deleted_at:now,updated_at:now});
   });
-  /* 사진 먼저 올리기 */
+  /* 사진 먼저 올리기 (Storage 계층 경유) */
   for(const r of ups.filter(x=>x.kind==='photo'&&!x.deleted)){
-   const b=await blobOf(r.id);
-   if(b){try{await SB.storage.from('photos').upload(`${sid}/${r.id}.jpg`,b,{upsert:true,contentType:'image/jpeg'})}catch(_){}}
+   try{await Storage.push(r.id)}catch(_){}
+   r.data=fileMetaRec(r.id);
   }
   for(let i=0;i<ups.length;i+=100){
    const chunk=ups.slice(i,i+100);
@@ -4895,7 +5520,7 @@ async function doCreateSpace(){
  const {data,error}=await SB.rpc('create_space',{p_code:code});
  if(error){SYNCERR=error.message;render();return toast('만들기 실패')}
  S.sync.spaceId=data;S.sync.code=code;S.sync.slot='me';S.sync.cursor=null;S.sync.sig={};S.sync.setSig='';
- S.profile='me';save();render();toast('공간을 만들었어요');
+ S.profile='me';rebaseFiles(data);save();render();toast('공간을 만들었어요');
  syncNow(true);
 }
 async function doJoinSpace(){
@@ -4908,7 +5533,7 @@ async function doJoinSpace(){
           error.message.includes('SPACE_FULL')?'이미 두 명이 차 있어요':error.message;
   render();return toast('합류 실패')}
  S.sync.spaceId=data;S.sync.code=c;S.sync.slot='you';S.sync.cursor=null;S.sync.sig={};S.sync.setSig='';
- S.profile='you';save();render();toast('합류했어요');
+ S.profile='you';rebaseFiles(data);save();render();toast('합류했어요');
  syncNow(true);
 }
 
