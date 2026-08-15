@@ -259,6 +259,17 @@ textarea::placeholder{color:#CDB9C4}
 }
 .pill{font-size:10px;padding:3px 9px;border-radius:12px;background:#FDEEF4;color:#C86E96;font-weight:800}
 
+/* ---- 태그 ---- */
+.tg{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:800;padding:5px 10px;border-radius:12px;
+ line-height:1;white-space:nowrap;cursor:pointer}
+.tg b{font-size:13px;opacity:.85;padding:0 1px;cursor:pointer}
+.tg.on{box-shadow:0 2px 7px rgba(190,140,165,.22)}
+select.in{appearance:none;background:#fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23A2909A' stroke-width='3'><path d='M6 9l6 6 6-6'/></svg>") no-repeat right 12px center}
+.tgrow{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.exp .t span.tgrow,.row .t span.tgrow{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px}
+.exp .t span.tg,.row .t span.tg,.card span.tg{display:inline-flex;width:auto;align-self:flex-start;
+ font-size:10.5px;padding:4px 9px;line-height:1;color:inherit}
+
 /* ---- v3 생활관리 ---- */
 .hero{background:linear-gradient(135deg,rgba(255,228,238,.9),rgba(233,226,255,.9));border-radius:var(--r);
  padding:18px 16px;margin-bottom:10px;border:1px solid rgba(255,255,255,.7);box-shadow:0 3px 14px rgba(190,140,165,.09)}
@@ -315,6 +326,7 @@ textarea.in{line-height:1.7}
 <div class="mk" id="mk"><div class="sheet" id="sheet"></div></div>
 <div class="toast" id="toast"></div>
 <input type="file" id="fin" accept="image/*" multiple style="display:none">
+<input type="file" id="xin" accept=".xlsx,.xls,.csv" style="display:none">
 
 <script>
 /* ================= 저장소 ================= */
@@ -383,7 +395,7 @@ const DEF={
  budget:{monthly:0,cats:{},alertPct:80},
  events:[], anniv:[], tasks:[], shop:[], goals:[], memos:[], trips:[], fixed:[], bucket:[], body:[],
  loc:{on:false,home:null,going:false,me:null,you:null,safeR:300}, notif:false,
- placeMeta:{}, settle:{me:50}, notiRead:[],
+ placeMeta:{}, photoMeta:{}, tags:[], tagStats:{}, settle:{me:50}, notiRead:[],
  kakaoKey:'50715f43acb2fcfc6566878f03bdf09f',
  v:2,
  days:{}
@@ -434,10 +446,25 @@ function migrate(){
    if(!Array.isArray(e.tags))e.tags=[];
  })});
  if(!S.anniv.length&&S.since)S.anniv.push({id:'an-since',title:'함께한 날',date:S.since,type:'count',icon:'❤️'});
- if(S.v!==3){S.v=3;save()}
+ syncSinceAnniv();
+ migTags();
+ if(S.v!==4){S.v=4;save()}
 }
 let saveT=null;
-function save(){clearTimeout(saveT);saveT=setTimeout(()=>{try{DB.set('state',JSON.stringify(S))}catch(_){}},180);try{syncSoon()}catch(_){}}
+function save(){clearTimeout(saveT);saveT=setTimeout(()=>{try{recountTags()}catch(_){}try{DB.set('state',JSON.stringify(S))}catch(_){}},180);try{syncSoon()}catch(_){}}
+
+/* 함께한 시작일 ↔ '함께한 날' 기념일 동기화 */
+function syncSinceAnniv(){
+ if(!Array.isArray(S.anniv))return;
+ const a=S.anniv.find(x=>x.id==='an-since');
+ if(a){ if(a.date!==S.since)a.date=S.since; }
+ else if(S.since)S.anniv.unshift({id:'an-since',title:'함께한 날',date:S.since,type:'count',icon:'❤️'});
+}
+function setSince(v){
+ if(!v)return;
+ S.since=v; syncSinceAnniv(); save(); render();
+ toast('시작일을 '+v+'로 바꿨어요');
+}
 
 /* ================= 유틸 ================= */
 const WX=['☀️','🌤️','☁️','🌧️','⛈️','🌨️','🌫️','🌈'];
@@ -560,7 +587,7 @@ function diagBox(){
 let view='home', cur=new Date(), selDate=key(new Date()), q='', filt='all', ledOpen=null, mapFilt='all', catTab='out';
 const PARENT={day:'cal',search:'home',set:'more',cards:'set',cats:'set',favs:'set',sync:'set',
  noti:'more',anniv:'more',life:'more',goals:'more',trip:'more',budget:'more',fixed:'more',
- settle:'more',list:'more',album:'more',stats:'more',bucket:'more',body:'more',loc:'more',alarm:'more'};
+ settle:'more',list:'more',album:'more',stats:'more',bucket:'more',xls:'more',body:'more',loc:'more',alarm:'more',tags:'more',tag:'tags'};
 
 /* ================= 화면 ================= */
 const V={};
@@ -614,7 +641,8 @@ V.day=()=>{
  <div class="card"><div style="font-size:11.5px;color:var(--sub);font-weight:800;margin-bottom:8px">오늘 날씨</div>
    <div class="wxrow">${WX.map(w=>`<div class="wx1 ${o.wx===w?'on':''}" onclick="setWx('${w}')">${w}</div>`).join('')}</div></div>
  <div class="photos">
-   ${o.photos.map(id=>`<div class="p" data-ph="${id}"><b onclick="event.stopPropagation();delPhoto('${id}')">×</b></div>`).join('')}
+   ${o.photos.map(id=>`<div class="p" data-ph="${id}" onclick="photoSheet('${id}')"><b onclick="event.stopPropagation();delPhoto('${id}')">×</b>
+     ${((S.photoMeta||{})[id]||{}).tags&&S.photoMeta[id].tags.length?`<i style="position:absolute;left:5px;bottom:5px;font-size:9px;font-weight:800;background:rgba(0,0,0,.45);color:#fff;padding:2px 6px;border-radius:8px;font-style:normal">#${S.photoMeta[id].tags.length}</i>`:''}</div>`).join('')}
    <div class="add" onclick="addPhoto()">＋</div></div>
  <div class="card">
    <div class="who"><span class="av" style="background:var(--${me})">${esc(S.names[me][0])}</span>${esc(S.names[me])}의 일기
@@ -732,7 +760,8 @@ V.led=()=>{
  const places=placeAgg().slice(0,5);
  return `
  <div class="mrow"><div class="m" style="font-size:16px">${y}년 ${m+1}월</div>
-   <div class="nav"><button onclick="mv(-1)">‹</button><button onclick="mv(1)">›</button></div></div>
+   <div class="nav"><button onclick="mv(-1)">‹</button><button onclick="mv(1)">›</button>
+   <button onclick="go('xls')" style="width:auto;padding:0 11px;font-weight:800">엑셀</button></div></div>
  <div class="bs">
    <div class="b"><span>수입</span><b style="color:var(--ok)">${won(inc)}</b></div>
    <div class="b"><span>지출</span><b style="color:var(--warn)">${won(out)}</b></div>
@@ -876,7 +905,7 @@ function placeDetail(id){
 V.more=()=>{
  const days=Object.keys(S.days).filter(hasAny).length;
  const ph=Object.values(S.days).reduce((a,d)=>a+d.photos.length,0);
- const sd=Math.floor((new Date()-parse(S.since))/86400000);
+ const sd=sinceDays();
  let done=0,total=0;
  Object.keys(S.days).forEach(k=>{const o=S.days[k];S.checkItems.forEach(c=>{total+=2;if(o.chk.me[c])done++;if(o.chk.you[c])done++})});
  return `
@@ -909,7 +938,7 @@ V.set=()=>`
  <div class="card">
    <div class="fl">내 이름</div><input class="in" value="${esc(S.names.me)}" oninput="S.names.me=this.value||'나';save()">
    <div class="fl">짝꿍 이름</div><input class="in" value="${esc(S.names.you)}" oninput="S.names.you=this.value||'짝꿍';save()">
-   <div class="fl">함께한 시작일</div><input class="in" type="date" value="${S.since}" onchange="S.since=this.value;save()">
+   <div class="fl">함께한 시작일</div><input class="in" type="date" value="${S.since}" onchange="setSince(this.value)">
  </div>
  <div class="sec">가계부</div>
  <div class="card" style="padding:6px 14px">
@@ -1246,11 +1275,12 @@ function drawEX(){
     ${S.favPlaces.slice(0,6).map((p,i3)=>`<div class="opt sm" onclick="useFav(${i3})">⭐ ${esc(p.name)}</div>`).join('')}</div>`:''}
 
   <div class="fl">내용</div>
-  <input class="in" id="eN" placeholder="${inc?'예: 8월 급여':'예: 저녁 칼국수'}" value="${esc(EX.name)}" oninput="EX.name=this.value">
+  <input class="in" id="eN" placeholder="${inc?'예: 8월 급여':'예: 저녁 칼국수'}" value="${esc(EX.name)}" oninput="EX.name=this.value" onchange="sugDraw()">
 
   <div class="btns">
    ${EXid?`<button class="btn g" onclick="delExp('${EXid}','${EXkey}');close_()">삭제</button>`:`<button class="btn g" onclick="close_()">취소</button>`}
    <button class="btn p" onclick="saveExp()">저장</button></div>`);
+ setTimeout(tagSuggest,60);
  if(!EXid)setTimeout(()=>{const a=document.getElementById('eA');if(a)a.focus()},130);
 }
 function dateLabel(k){const d=parse(k),t=key(new Date());
@@ -1276,6 +1306,7 @@ function fmtA(el){const n=+el.value.replace(/[^0-9]/g,'')||0;EX.a=n;el.value=n?c
 function padA(v){if(v==='C')EX.a=0;else EX.a+=+v;const el=document.getElementById('eA');if(el)el.value=EX.a?comma(EX.a):''}
 function saveExp(){
  if(!EX.a)return toast('금액을 입력해주세요');
+ tagBump(EX.tags); try{learnTags(exCtx(),EX.tags)}catch(_){}
  const nk=EX.date||EXkey;
  if(EXid){const o0=D(EXkey);o0.exp=o0.exp.filter(x=>x.id!==EXid)}
  const o=D(nk);
@@ -1463,7 +1494,7 @@ function annivList(){
  return out.filter(o=>o.left>=0).sort((a,b)=>a.left-b.left);
 }
 function annivOn(k){return annivList().filter(a=>a.date===k)}
-const sinceDays=()=>Math.floor((new Date()-parse(S.since))/86400000);
+const sinceDays=()=>dayDiff(S.since,today());
 
 /* ---------- 가계부 집계 ---------- */
 function monthExp(y,m,fn){
@@ -1690,7 +1721,8 @@ V.day=()=>{
    ${ev.length?ev.map(e=>`<div class="row" style="cursor:pointer" onclick="evSheet('${e.id}')">
      <div class="evd" style="background:${evColor(e)}"></div>
      <div class="t"><b>${esc(e.title)}</b><span>${e.time?e.time+' · ':''}${esc(e.cat||'기타')}${e.rep&&e.rep!=='none'?' · 반복':''}${e.place?' · 📍'+esc(e.place.name||e.place):''}</span>
-       ${e.memo?`<span>${esc(e.memo)}</span>`:''}</div>
+       ${e.memo?`<span>${esc(e.memo)}</span>`:''}
+       ${(e.tags||[]).length?`<span class="tgrow">${tagChips(e.tags)}</span>`:''}</div>
      <div class="r">${esc(e.who==='our'?'같이':S.names[e.who]||'')}</div></div>`).join('')
    :`<div class="empty">일정이 없어요</div>`}
    ${fx.map(f=>`<div class="row"><div class="ic">🧾</div>
@@ -1713,17 +1745,17 @@ V.day=()=>{
    <input class="in" style="border:0;border-bottom:1.5px solid var(--line);border-radius:0;padding:6px 2px;font-size:14px;font-weight:800"
      placeholder="제목 (선택)" value="${esc(dm.title||'')}" oninput="setTitle(this.value)">
    <textarea id="dtx" placeholder="오늘 어땠어요?" oninput="setText(this.value)">${esc(dm.text||'')}</textarea>
-   <div style="display:flex;align-items:center;gap:6px;border-top:1px dashed var(--line);padding-top:8px">
+   <div style="border-top:1px dashed var(--line);padding-top:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
      <span style="font-size:11px;color:var(--sub);font-weight:800">태그</span>
-     <input class="in" style="border:0;padding:4px 6px;font-size:12.5px" placeholder="예: 제주, 데이트 (쉼표로 구분)"
-       value="${esc((dm.tags||[]).join(', '))}" onchange="setTags(this.value)"></div>
+     ${tagChips(dm.tags||[])}
+     <span class="tg" style="background:#F3ECFB;color:#8B6FBF" onclick="diaryTagSheet('${k}','${me}')">＋ 편집</span></div>
  </div>
  <div class="card">
    <div class="who"><span class="av" style="background:var(--${you})">${esc(S.names[you][0])}</span>${esc(S.names[you])}의 일기
      <span style="margin-left:auto;font-size:11px;color:var(--sub);font-weight:700">${dy.mood?dy.mood+' '+MOODN[dy.mood]:''}</span></div>
    ${dy.title?`<div style="font-size:13.5px;font-weight:800;margin-bottom:5px">${esc(dy.title)}</div>`:''}
    ${dy.text?`<div class="ro">${esc(dy.text)}</div>`:`<div class="empty">아직 작성 전이에요. 우측 상단에서 프로필을 바꾸면 대신 쓸 수 있어요.</div>`}
-   ${(dy.tags||[]).map(t=>`<span class="chip">#${esc(t)}</span>`).join('')}</div>
+   <div class="tgrow">${tagChips(dy.tags||[])}</div></div>
 
  <div class="sec">오늘의 지출 <span class="more" onclick="expSheet()">＋ 추가</span></div>
  <div class="card">
@@ -1759,7 +1791,8 @@ function expRow(e,k){
   <div class="ic">${e.icon||c.e}</div>
   <div class="t"><b>${esc(e.name||e.cat)}</b>
     <span>${esc(e.cat)}${e.sub?' › '+esc(e.sub):''} · ${payIcon(e.pay.type)}${esc(payLabel(e))} · ${esc(byName(e.by))} 결제</span>
-    <span style="color:${sc==='our'?'var(--our)':'var(--sub)'}">${sc==='our'?'공동지출':'개인지출'}${(e.tags||[]).length?' · #'+e.tags.map(esc).join(' #'):''}</span>
+    <span style="color:${sc==='our'?'var(--our)':'var(--sub)'}">${sc==='our'?'공동지출':'개인지출'}</span>
+    ${(e.tags||[]).length?`<span class="tgrow">${tagChips(e.tags)}</span>`:''}
     ${e.place&&e.place.name?`<span style="color:#C58AA6">📍 ${esc(e.place.name)}</span>`:''}</div>
   <div class="a" style="color:${e.t==='in'?'var(--ok)':'var(--warn)'}">${e.t==='in'?'+':'-'}${comma(e.a)}</div>
   <div class="x" onclick="event.stopPropagation();delExp('${e.id}','${k}')">×</div></div>`;
@@ -1778,7 +1811,7 @@ function evSheet(id,k){
 function drawEV(){
  sheet(`<h3>${EVid?'일정 수정':'일정 추가'}</h3>
  <div class="fl">제목</div>
- <input class="in" id="evT" placeholder="예: ○○식당 저녁" value="${esc(EV.title)}" oninput="EV.title=this.value">
+ <input class="in" id="evT" placeholder="예: ○○식당 저녁" value="${esc(EV.title)}" oninput="EV.title=this.value" onchange="sugDraw()">
  <div class="fl">날짜 · 시간</div>
  <div style="display:flex;gap:7px">
    <input class="in" type="date" style="flex:1.4" value="${EV.date}" onchange="EV.date=this.value||EV.date;drawEV()">
@@ -1811,15 +1844,17 @@ function drawEV(){
  ${S.trips.map(t=>`<div class="opt sm ${EV.tripId===t.id?'on':''}" onclick="EV.tripId='${t.id}';drawEV()">✈️ ${esc(t.title)}</div>`).join('')}</div>`:''}
  <div class="fl">메모</div>
  <input class="in" placeholder="메모" value="${esc(EV.memo||'')}" oninput="EV.memo=this.value">
+ ${tagBox(EV,'태그',evCtx)}
  <div class="btns">
   ${EVid?`<button class="btn g" onclick="evDel()">삭제</button>`:`<button class="btn g" onclick="close_()">취소</button>`}
   <button class="btn p" onclick="evSave()">저장</button></div>`);
- setTimeout(()=>{const a=document.getElementById('evT');if(a&&!EVid)a.focus()},130);
+ setTimeout(()=>{tagSuggest();const a=document.getElementById('evT');if(a&&!EVid)a.focus()},130);
 }
 function evAlarm(v){EV.alarm=EV.alarm||[];const i=EV.alarm.indexOf(v);
  if(i>=0)EV.alarm.splice(i,1);else EV.alarm.push(v);drawEV()}
 function evSave(){
  if(!EV.title.trim())return toast('제목을 입력해주세요');
+ try{learnTags(evCtx(),EV.tags)}catch(_){}
  if(EVid){const i=S.events.findIndex(x=>x.id===EVid);if(i>=0)S.events[i]=EV;else S.events.push(EV)}
  else S.events.push(EV);
  save();close_();render();toast(EVid?'일정을 수정했어요':'일정을 추가했어요');
@@ -1884,6 +1919,8 @@ function anSave(){
  if(!AN.title.trim())return toast('이름을 입력해주세요');
  if(ANid){const i=S.anniv.findIndex(x=>x.id===ANid);if(i>=0)S.anniv[i]=AN;else S.anniv.push(AN)}
  else S.anniv.push(AN);
+ if(AN.id==='an-since'&&AN.date&&AN.date!==S.since)S.since=AN.date;
+ syncSinceAnniv();
  save();close_();render();toast('저장했어요');
 }
 function anDel(){S.anniv=S.anniv.filter(x=>x.id!==ANid);save();close_();render();toast('삭제했어요')}
@@ -2081,7 +2118,8 @@ function tasksView(){
  <div class="card">${g[1].map(x=>`<div class="row">
    <div class="tick ${x.done?'on':''}" onclick="tkToggle('${x.id}')">✓</div>
    <div class="t" onclick="tkSheet('${x.id}')" style="cursor:pointer"><b>${esc(x.title)}</b>
-     <span>${x.due?x.due.slice(5).replace('-','/')+' · ':''}${esc(x.who==='our'?'같이':S.names[x.who]||'')}${x.rep&&x.rep!=='none'?' · 반복':''}</span></div>
+     <span>${x.due?x.due.slice(5).replace('-','/')+' · ':''}${esc(x.who==='our'?'같이':S.names[x.who]||'')}${x.rep&&x.rep!=='none'?' · 반복':''}</span>
+     ${(x.tags||[]).length?`<span class="tgrow">${tagChips(x.tags)}</span>`:''}</div>
    <div class="x" onclick="tkDel('${x.id}')">×</div></div>`).join('')}</div>`).join('')}
  ${!undone.length?`<div class="card" style="text-align:center;padding:30px"><div style="font-size:28px">🎉</div>
    <div style="font-size:12.5px;color:var(--sub);margin-top:9px;font-weight:600">할 일을 모두 끝냈어요</div></div>`:''}
@@ -2101,7 +2139,7 @@ function tkSheet(id){
 function drawTK(){
  sheet(`<h3>${TKid?'할 일 수정':'할 일 추가'}</h3>
  <div class="fl">할 일</div>
- <input class="in" id="tkT" placeholder="예: 분리수거" value="${esc(TK.title)}" oninput="TK.title=this.value">
+ <input class="in" id="tkT" placeholder="예: 분리수거" value="${esc(TK.title)}" oninput="TK.title=this.value" onchange="sugDraw()">
  <div class="fl">담당</div>
  <div class="seg"><div class="sg ${TK.who==='me'?'on me':''}" onclick="TK.who='me';drawTK()">${esc(S.names.me)}</div>
    <div class="sg ${TK.who==='you'?'on you':''}" onclick="TK.who='you';drawTK()">${esc(S.names.you)}</div>
@@ -2112,13 +2150,15 @@ function drawTK(){
    <button class="btn g" style="flex:0 0 66px;padding:0;font-size:12.5px" onclick="TK.due='';drawTK()">없음</button></div>
  <div class="fl">반복</div>
  <div class="opts">${REPS.map(r=>`<div class="opt sm ${TK.rep===r[0]?'on':''}" onclick="TK.rep='${r[0]}';drawTK()">${r[1]}</div>`).join('')}</div>
+ ${tagBox(TK,'태그',tkCtx)}
  <div class="btns">
   ${TKid?`<button class="btn g" onclick="tkDel('${TKid}');close_()">삭제</button>`:`<button class="btn g" onclick="close_()">취소</button>`}
   <button class="btn p" onclick="tkSave()">저장</button></div>`);
- setTimeout(()=>{const a=document.getElementById('tkT');if(a&&!TKid)a.focus()},130);
+ setTimeout(()=>{tagSuggest();const a=document.getElementById('tkT');if(a&&!TKid)a.focus()},130);
 }
 function tkSave(){
  if(!TK.title.trim())return toast('할 일을 입력해주세요');
+ try{learnTags(tkCtx(),TK.tags)}catch(_){}
  if(TKid){const i=S.tasks.findIndex(x=>x.id===TKid);if(i>=0)S.tasks[i]=TK;else S.tasks.push(TK)}
  else S.tasks.push(TK);
  save();close_();render();toast('저장했어요');
@@ -2146,11 +2186,14 @@ function shopView(){
  const un=S.shop.filter(x=>!x.done),dn=S.shop.filter(x=>x.done);
  return `<div class="card" style="display:flex;gap:8px;padding:12px">
    <input class="in" id="shq" placeholder="살 것을 입력하고 엔터" style="flex:1" onkeydown="if(event.key==='Enter')shopAdd()">
-   <button class="btn p" style="flex:0 0 62px;padding:0" onclick="shopAdd()">추가</button></div>
+   <button class="btn p" style="flex:0 0 62px;padding:0" onclick="shopAdd()">추가</button>
+   <button class="btn g" style="flex:0 0 46px;padding:0" onclick="shSheet()">＋</button></div>
  <div class="sec">살 것 ${un.length} <span class="more" onclick="shopToExp()">지출로 등록 ›</span></div>
  <div class="card">${un.length?un.map(x=>`<div class="row">
    <div class="tick" onclick="shopToggle('${x.id}')">✓</div>
-   <div class="t"><b>${esc(x.name)}</b><span>${x.qty?x.qty+' · ':''}${esc(x.who==='our'?'같이':S.names[x.who]||'')}${x.memo?' · '+esc(x.memo):''}</span></div>
+   <div class="t" style="cursor:pointer" onclick="shSheet('${x.id}')"><b>${esc(x.name)}</b>
+     <span>${x.qty?x.qty+' · ':''}${esc(x.who==='our'?'같이':S.names[x.who]||'')}${x.memo?' · '+esc(x.memo):''}</span>
+     ${(x.tags||[]).length?`<span class="tgrow">${tagChips(x.tags)}</span>`:''}</div>
    <div class="x" onclick="shopDel('${x.id}')">×</div></div>`).join('')
   :`<div class="empty">필요한 걸 적어두면 두 사람 모두에게 보여요</div>`}</div>
  ${dn.length?`<div class="sec">담음 ${dn.length} <span class="more" onclick="shopClear()">비우기</span></div>
@@ -2161,7 +2204,7 @@ function shopView(){
 function shopAdd(){
  const el=document.getElementById('shq');if(!el)return;
  const v=el.value.trim();if(!v)return;
- S.shop.push({id:uid(),name:v,qty:'',memo:'',who:'our',done:false});
+ S.shop.push({id:uid(),name:v,qty:'',memo:'',who:'our',done:false,tags:[]});
  el.value='';save();render();setTimeout(()=>{const e2=document.getElementById('shq');if(e2)e2.focus()},60);
 }
 function shopToggle(id){const x=S.shop.find(s=>s.id===id);if(x){x.done=!x.done;save();render()}}
@@ -2223,6 +2266,7 @@ V.goals=()=>{
      <span style="font-size:13px;font-weight:900;color:var(--our)">${p}%</span></div>
    <div class="pg"><i style="width:${Math.min(100,p)}%"></i></div>
    <div class="cmp">${comma(cu)} / ${comma(g.target)}원 ${g.due?`· 목표일 ${g.due} (D-${Math.max(0,dayDiff(today(),g.due))})`:''}</div>
+   ${(g.tags||[]).length?`<div class="tgrow">${tagChips(g.tags)}</div>`:''}
    <div style="display:flex;gap:7px;margin-top:10px">
      <button class="btn g" style="padding:11px;font-size:12.5px" onclick="glAdd('${g.id}')">＋ 적립</button>
      <button class="btn g" style="padding:11px;font-size:12.5px" onclick="glSheet('${g.id}')">수정</button>
@@ -2257,10 +2301,11 @@ function drawGL(){
  <input class="in" type="date" value="${GL.due||''}" onchange="GL.due=this.value">
  <div class="fl">메모</div>
  <input class="in" placeholder="메모" value="${esc(GL.memo||'')}" oninput="GL.memo=this.value">
+ ${tagBox(GL,'태그',glCtx)}
  <div class="btns">
   ${GLid?`<button class="btn g" onclick="glDel()">삭제</button>`:`<button class="btn g" onclick="close_()">취소</button>`}
   <button class="btn p" onclick="glSave()">저장</button></div>`);
- setTimeout(()=>{const a=document.getElementById('glT');if(a&&!GLid)a.focus()},130);
+ setTimeout(()=>{tagSuggest();const a=document.getElementById('glT');if(a&&!GLid)a.focus()},130);
 }
 function glSave(){
  if(!GL.title.trim())return toast('목표명을 입력해주세요');
@@ -2327,6 +2372,7 @@ V.trip=()=>{
     <div class="prow" style="margin-top:0"><span style="font-size:13.5px;font-weight:900">✈️ ${esc(t.title)}</span>
       <span style="font-size:11.5px;color:var(--sub)">${t.start} ~ ${t.end}</span></div>
     <div class="cmp" style="margin-top:6px">일정 ${st.ev}개 · 장소 ${st.pl}곳 · 사진 ${st.ph}장 · 일기 ${st.dr}개 · 지출 ${comma(st.sum)}원</div>
+    ${(t.tags||[]).length?`<div class="tgrow">${tagChips(t.tags)}</div>`:''}
    </div>`}).join('')
  :`<div class="card" style="text-align:center;padding:32px"><div style="font-size:30px">✈️</div>
    <div style="font-size:12.5px;color:var(--sub);margin-top:9px;font-weight:600">여행 기간을 등록하면 그 기간의 일정·지출·사진·일기가 자동으로 묶여요</div></div>`}`;
@@ -2359,10 +2405,11 @@ function drawTP(){
    <input class="in" type="date" style="flex:1" value="${TP.end}" onchange="TP.end=this.value"></div>
  <div class="fl">메모</div>
  <input class="in" placeholder="메모" value="${esc(TP.memo||'')}" oninput="TP.memo=this.value">
+ ${tagBox(TP,'태그',tpCtx)}
  <div class="btns">
   ${TPid?`<button class="btn g" onclick="tpDel()">삭제</button>`:`<button class="btn g" onclick="close_()">취소</button>`}
   <button class="btn p" onclick="tpSave()">저장</button></div>`);
- setTimeout(()=>{const a=document.getElementById('tpT');if(a&&!TPid)a.focus()},130);
+ setTimeout(()=>{tagSuggest();const a=document.getElementById('tpT');if(a&&!TPid)a.focus()},130);
 }
 function tpSave(){
  if(!TP.title.trim())return toast('여행 이름을 입력해주세요');
@@ -2411,14 +2458,10 @@ V.album=()=>{
    <div class="card"><div class="photos">${phs.slice(0,10).map(p=>`<div class="p" data-ph="${p}" style="width:84px;height:84px"></div>`).join('')||'<div class="empty">사진 없음</div>'}</div>
    <div class="cmp">지출 ${comma(ks.reduce((a,k)=>a+daySum(k),0))}원</div></div>`}).join('');
  }else if(albTab==='tag'){
-  const g={};
-  Object.keys(S.days).forEach(k=>{const o=S.days[k];
-   Object.values(o.diary).forEach(d=>{(d&&d.tags||[]).forEach(t2=>{(g[t2]=g[t2]||[]).push(k)})});
-   (o.exp||[]).forEach(e=>(e.tags||[]).forEach(t2=>{(g[t2]=g[t2]||[]).push(k)}));});
-  const ks=Object.keys(g).sort((a,b)=>g[b].length-g[a].length);
-  body=ks.length?`<div class="card"><div style="display:flex;flex-wrap:wrap;gap:6px">
-   ${ks.map(t2=>`<span class="chip" style="font-size:12px;padding:7px 12px;cursor:pointer" onclick="q='${esc(t2)}';go('search')">#${esc(t2)} ${[...new Set(g[t2])].length}</span>`).join('')}</div></div>`
-   :`<div class="card"><div class="empty">일기나 지출에 태그를 달면 여기에 모여요</div></div>`;
+  const L=allTags('cnt').filter(t=>t.cnt);
+  body=L.length?`<div class="card"><div style="display:flex;flex-wrap:wrap;gap:6px">
+   ${L.map(t=>`<span class="tg" style="background:${tagColor(t.id)}1f;color:${tagColor(t.id)};font-size:12.5px;padding:8px 13px" onclick="openTag('${t.id}')">#${esc(t.n)} ${t.cnt}</span>`).join('')}</div></div>`
+   :`<div class="card"><div class="empty">기록에 태그를 달면 여기에 모여요</div></div>`;
  }else{
   const pl=placeAgg();
   body=pl.length?pl.map(p=>`<div class="lc" onclick="placeDetail('${esc(p.pid||p.name)}')">
@@ -2524,14 +2567,14 @@ function searchResults(t){
  const has=x=>String(x||'').toLowerCase().includes(t.toLowerCase());
  Object.keys(S.days).sort().reverse().forEach(k=>{const o=S.days[k];
   ['me','you'].forEach(p=>{const d=o.diary[p];if(!d)return;
-   if(has(d.text)||has(d.title)||(d.tags||[]).some(has))
-    res.push({k,type:'일기 · '+S.names[p],tx:(d.title?d.title+' — ':'')+(d.text||'')+((d.tags||[]).length?' #'+d.tags.join(' #'):''),go:`openDay('${k}')`})});
+   if(has(d.text)||has(d.title)||(d.tags||[]).map(tagName).some(has))
+    res.push({k,type:'일기 · '+S.names[p],tx:(d.title?d.title+' — ':'')+(d.text||'')+((d.tags||[]).length?' #'+d.tags.map(tagName).join(' #'):''),go:`openDay('${k}')`})});
   (o.exp||[]).forEach(e=>{
-   const hay=[e.name,e.cat,e.sub,payLabel(e),(e.place&&e.place.name),(e.tags||[]).join(' ')].join(' ');
+   const hay=[e.name,e.cat,e.sub,payLabel(e),(e.place&&e.place.name),(e.tags||[]).map(tagName).join(' ')].join(' ');
    if(has(hay))res.push({k,type:'지출 · '+byName(e.by),tx:`${e.name||e.cat} · ${comma(e.a)}원 · ${e.cat}${e.sub?' › '+e.sub:''}${e.place?' · 📍'+e.place.name:''}`,go:`openDay('${k}')`})});
   (o.places||[]).forEach(p=>{if(has(p.n||p.name)||has(p.c))res.push({k,type:'장소',tx:(p.n||p.name)+' '+(p.c||''),go:`openDay('${k}')`})});
  });
- S.events.forEach(e=>{if(has(e.title)||has(e.memo)||has(e.cat)||has(e.place&&e.place.name))
+ S.events.forEach(e=>{if(has(e.title)||has(e.memo)||has(e.cat)||has(e.place&&e.place.name)||(e.tags||[]).map(tagName).some(has))
   res.push({k:e.date,type:'일정 · '+(e.cat||''),tx:`${e.title}${e.time?' '+e.time:''}${e.memo?' — '+e.memo:''}`,go:`evSheet('${e.id}')`})});
  S.memos.forEach(m=>{if(has(m.title)||has(m.body))
   res.push({k:'',type:'메모 · '+m.cat,tx:`${m.title} — ${(m.body||'').slice(0,80)}`,go:`mmSheet('${m.id}')`})});
@@ -2543,6 +2586,8 @@ function searchResults(t){
   res.push({k:x.due||'',type:'할 일',tx:x.title+(x.done?' (완료)':''),go:`go('life')`})});
  S.fixed.forEach(f=>{if(has(f.title))
   res.push({k:'',type:'고정비',tx:`${f.title} ${comma(f.amount)}원`,go:`fxSheet('${f.id}')`})});
+ (S.tags||[]).forEach(t=>{if(has(t.n))
+  res.push({k:'',type:'태그',tx:`#${t.n} · 기록 ${t.cnt||0}건`,go:`openTag('${t.id}')`})});
  (S.bucket||[]).forEach(b=>{if(has(b.title)||has(b.memo)||has(b.cat))
   res.push({k:b.due||'',type:'버킷리스트'+(b.done?' · 달성':''),tx:`${b.title}${b.place?' · 📍'+b.place.name:''}`,go:`bkDetail('${b.id}')`})});
  S.anniv.forEach(a=>{if(has(a.title))
@@ -2553,13 +2598,11 @@ function drawSearch(){
  const box=document.getElementById('sres'); if(!box)return;
  const t=(q||'').trim();
  if(!t){
-  const tags=new Set();
-  Object.values(S.days).forEach(o=>{Object.values(o.diary).forEach(d=>(d&&d.tags||[]).forEach(x=>tags.add(x)));
-   (o.exp||[]).forEach(e=>(e.tags||[]).forEach(x=>tags.add(x)))});
+  const tagsL=allTags('cnt').filter(t=>t.cnt).slice(0,24);
   box.innerHTML=`<div class="card" style="text-align:center;padding:26px"><div style="font-size:26px">💗</div>
    <div style="font-size:12.5px;color:var(--sub);margin-top:9px;font-weight:600">일기 · 지출 · 장소 · 일정 · 메모 · 목표를 한 번에 찾아요</div></div>
-   ${tags.size?`<div class="card"><div class="fl" style="margin-top:0">태그</div>
-   <div style="display:flex;flex-wrap:wrap;gap:5px">${[...tags].map(x=>`<span class="chip" style="cursor:pointer" onclick="q='${esc(x)}';document.getElementById('sq').value='${esc(x)}';drawSearch()">#${esc(x)}</span>`).join('')}</div></div>`:''}`;
+   ${tagsL.length?`<div class="card"><div class="fl" style="margin-top:0">태그 <span class="more" onclick="go('tags')">관리 ›</span></div>
+   <div style="display:flex;flex-wrap:wrap;gap:5px">${tagsL.map(t=>`<span class="tg" style="background:${tagColor(t.id)}1f;color:${tagColor(t.id)}" onclick="openTag('${t.id}')">#${esc(t.n)} ${t.cnt}</span>`).join('')}</div></div>`:''}`;
   return}
  const res=searchResults(t);
  const rx=new RegExp(t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi');
@@ -2598,6 +2641,7 @@ function placeDetail(id){
   <div class="opts">${[1,2,3,4,5].map(n=>`<div class="opt sm ${meta.rating===n?'on':''}" onclick="plMeta('${esc(id)}','rating',${n})">${'★'.repeat(n)}</div>`).join('')}</div>
   <div class="fl">메모 · 링크</div>
   <input class="in" placeholder="예: 주차 가능, 예약 필수" value="${esc(meta.memo||'')}" onchange="plMeta('${esc(id)}','memo',this.value)">
+  ${(PLACECTX={name:p.name,pid:id,cat:meta.cat||p.cat||''},tagBox((S.placeMeta[id]=S.placeMeta[id]||{tags:[]}),'태그',plCtx))}
   ${photos.length?`<div class="fl">사진 ${photos.length}장</div>
    <div class="photos">${photos.slice(0,12).map(x=>`<div class="p" data-ph="${x}" style="width:84px;height:84px"></div>`).join('')}</div>`:''}
   ${evs.length?`<div class="fl">연결된 일정</div>${evs.map(e=>`<div class="row"><div class="evd" style="background:${evColor(e)}"></div>
@@ -2611,8 +2655,8 @@ function placeDetail(id){
     <div class="ic">${r.e.icon||'📍'}</div>
     <div class="t"><b>${esc(r.e.name||r.e.cat)}</b><span>${r.k.slice(5).replace('-','/')} · ${esc(byName(r.e.by))} · ${esc(payLabel(r.e))}</span></div>
     <div class="r" style="color:var(--warn)">${comma(r.e.a)}원</div></div>`).join(''):'<div class="empty">지출 기록 없음</div>'}</div>
-  <div class="btns"><button class="btn p" onclick="close_();hydrate()">닫기</button></div>`);
- setTimeout(hydrate,60);
+  <div class="btns"><button class="btn p" onclick="save();close_();render()">저장하고 닫기</button></div>`);
+ setTimeout(()=>{hydrate();tagSuggest()},60);
 }
 function plMeta(id,f,v){
  S.placeMeta[id]=S.placeMeta[id]||{};
@@ -2688,9 +2732,7 @@ function drawEX(){
   <div class="fl">내용</div>
   <input class="in" id="eN" placeholder="${inc?'예: 8월 급여':'예: 저녁 칼국수'}" value="${esc(EX.name)}" oninput="EX.name=this.value">
 
-  <div class="fl">태그 (쉼표로 구분)</div>
-  <input class="in" placeholder="예: 제주, 데이트" value="${esc((EX.tags||[]).join(', '))}"
-    onchange="EX.tags=this.value.split(',').map(x=>x.trim()).filter(Boolean)">
+  ${tagBox(EX,'태그',exCtx)}
 
   ${S.goals.length&&!inc?`<div class="fl">목표에 연결 (선택)</div>
   <div class="opts"><div class="opt sm ${!EX.goalId?'on':''}" onclick="EX.goalId='';drawEX()">없음</div>
@@ -2720,6 +2762,7 @@ V.more=()=>{
   ['📍','위치 공유',S.loc&&S.loc.on?'사용 중':'꺼짐',"go('loc')"],
   ['🎉','기념일 · D-Day','100일 · 생일 · 결혼기념일',"go('anniv')"],
   ['✅','생활 관리','할 일 · 장보기 · 메모',"go('life')"],
+  ['🏷️','태그 관리',`${(S.tags||[]).length}개 · 기록을 하나로 잇기`,"go('tags')"],
   ['🪣','버킷리스트','함께 하고 싶은 것 · 사진 인증',"go('bucket')"],
   ['⚖️','인바디 기록','사진으로 자동 입력 · 그래프',"go('body')"],
   ['🎯','공동 목표','저축 · 여행 · 구매 목표',"go('goals')"],
@@ -2727,6 +2770,7 @@ V.more=()=>{
   ['📅','예산 관리','전체 · 카테고리별 예산',"go('budget')"],
   ['🧾','고정비 · 반복지출','관리비 · 통신비 · 구독',"go('fixed')"],
   ['⚖️','공동지출 정산','누가 얼마를 더 냈나',"go('settle')"],
+  ['📊','가계부 엑셀','엑셀로 가져오기 · 내보내기',"go('xls')"],
   ['📔','기록 목록','날짜별 다이어리',"go('list')"],
   ['📷','추억 모아보기','월별 · 장소별 · 태그별',"go('album')"],
   ['📊','OUR DATA','우리의 기록 통계',"go('stats')"],
@@ -2790,6 +2834,7 @@ V.bucket=()=>{
     ${(b.photos||[]).length?`<div class="photos" style="margin:10px 0 0">
       ${b.photos.slice(0,6).map(id=>`<div class="p" data-ph="${id}" style="width:84px;height:84px"></div>`).join('')}</div>`:''}
     ${b.memo?`<div style="font-size:11.5px;color:#7A6A72;margin-top:8px;font-weight:600;line-height:1.6">${esc(b.memo)}</div>`:''}
+    ${(b.tags||[]).length?`<div class="tgrow">${tagChips(b.tags)}</div>`:''}
   </div>`).join('')
  :`<div class="card" style="text-align:center;padding:32px"><div style="font-size:30px">🪣</div>
    <div style="font-size:12.5px;color:var(--sub);margin-top:9px;font-weight:600">
@@ -2806,7 +2851,7 @@ function bkSheet(id){
 function drawBK(){
  sheet(`<h3>${BKid?'버킷리스트 수정':'버킷리스트 추가'}</h3>
  <div class="fl">하고 싶은 것</div>
- <input class="in" id="bkT" placeholder="예: 오로라 보러 가기" value="${esc(BK.title)}" oninput="BK.title=this.value">
+ <input class="in" id="bkT" placeholder="예: 오로라 보러 가기" value="${esc(BK.title)}" oninput="BK.title=this.value" onchange="sugDraw()">
  <div class="fl">분류</div>
  <div class="opts">${BKCATS.map(c=>`<div class="opt sm ${BK.cat===c?'on':''}" onclick="BK.cat='${c}';drawBK()">${c}</div>`).join('')}</div>
  <div class="fl">장소 (선택)</div>
@@ -2820,14 +2865,16 @@ function drawBK(){
  <input class="in" type="date" value="${BK.due||''}" onchange="BK.due=this.value">
  <div class="fl">메모 · 링크</div>
  <textarea class="in" style="min-height:80px" placeholder="메모나 링크" oninput="BK.memo=this.value">${esc(BK.memo||'')}</textarea>
+ ${tagBox(BK,'태그',bkCtx)}
  <div class="btns">
   ${BKid?`<button class="btn g" onclick="bkDel()">삭제</button>`:`<button class="btn g" onclick="close_()">취소</button>`}
   <button class="btn p" onclick="bkSave()">저장</button></div>`);
- setTimeout(()=>{const a=document.getElementById('bkT');if(a&&!BKid)a.focus()},130);
+ setTimeout(()=>{tagSuggest();const a=document.getElementById('bkT');if(a&&!BKid)a.focus()},130);
 }
 function bkSave(){
  if(!BK.title.trim())return toast('내용을 입력해주세요');
  S.bucket=S.bucket||[];
+ try{learnTags(bkCtx(),BK.tags)}catch(_){}
  if(BKid){const i=S.bucket.findIndex(x=>x.id===BKid);if(i>=0)S.bucket[i]=BK;else S.bucket.push(BK)}
  else S.bucket.push(BK);
  save();close_();render();toast('저장했어요');
@@ -3352,6 +3399,1108 @@ V.alarm=()=>{
  </div>`;
 };
 
+
+/* ================= 공통 태그 시스템 (1차) ================= */
+const TAGCOLORS=['#F472B6','#A78BFA','#5B8DEF','#4FAE7C','#F0A06A','#EF8FA8','#7FC7E8','#C9A6E9','#F0C36B','#9AB8D8','#5BAE8E','#D98CA8'];
+const tagNorm=s=>String(s||'').replace(/^#+/,'').trim().replace(/\s+/g,' ');
+const tagKey=s=>'tg:'+tagNorm(s).toLowerCase().replace(/\s+/g,'');
+function tagOf(id){return (S.tags||[]).find(t=>t.id===id)||null}
+function tagName(id){const t=tagOf(id);return t?t.n:String(id||'').replace(/^tg:/,'')}
+function tagColor(id){const t=tagOf(id);if(t&&t.c)return t.c;
+ let h=0;const s=String(id);for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))|0;
+ return TAGCOLORS[Math.abs(h)%TAGCOLORS.length]}
+function ensureTag(name){
+ const n=tagNorm(name); if(!n)return null;
+ const id=tagKey(n);
+ if(!Array.isArray(S.tags))S.tags=[];
+ let t=S.tags.find(x=>x.id===id);
+ if(!t){t={id,n,c:TAGCOLORS[S.tags.length%TAGCOLORS.length],at:today(),cnt:0,last:''};S.tags.push(t)}
+ return id;
+}
+/* 태그가 붙는 모든 데이터 순회: fn(obj, kind, dateKey, extra) */
+function eachTagged(fn){
+ allExp((e,k)=>fn(e,'exp',k));
+ Object.keys(S.days).forEach(k=>{const o=S.days[k];
+  ['me','you'].forEach(p=>{const d=o.diary&&o.diary[p];if(d&&(d.text||d.title||(d.tags||[]).length))fn(d,'diary',k,p)});
+  (o.photos||[]).forEach(id=>{const m=(S.photoMeta||{})[id];if(m)fn(m,'photo',k,id)});
+ });
+ (S.events||[]).forEach(x=>fn(x,'event',x.date||''));
+ (S.tasks||[]).forEach(x=>fn(x,'task',x.due||''));
+ (S.shop||[]).forEach(x=>fn(x,'shop',''));
+ (S.goals||[]).forEach(x=>fn(x,'goal',x.due||''));
+ (S.trips||[]).forEach(x=>fn(x,'trip',x.start||''));
+ (S.bucket||[]).forEach(x=>fn(x,'bucket',x.due||''));
+ Object.keys(S.placeMeta||{}).forEach(id=>fn(S.placeMeta[id],'place','',id));
+}
+function recountTags(){
+ const m={};
+ eachTagged((o,kind,k)=>{(o.tags||[]).forEach(id=>{
+   if(!m[id])m[id]={c:0,l:''};
+   m[id].c++; if(k&&k>m[id].l)m[id].l=k;})});
+ (S.tags||[]).forEach(t=>{const x=m[t.id];t.cnt=x?x.c:0;t.last=x?x.l:''});
+}
+function tagBump(ids){
+ const t2=today();
+ (ids||[]).forEach(id=>{const t=tagOf(id);if(t){t.cnt=(t.cnt||0)+0;t.last=t2}});
+}
+function allTags(sort){
+ const L=(S.tags||[]).slice();
+ if(sort==='cnt')L.sort((a,b)=>(b.cnt||0)-(a.cnt||0)||a.n.localeCompare(b.n));
+ else if(sort==='last')L.sort((a,b)=>String(b.last).localeCompare(String(a.last))||a.n.localeCompare(b.n));
+ else L.sort((a,b)=>a.n.localeCompare(b.n));
+ return L;
+}
+/* 읽기 전용 칩 */
+function tagChips(ids,click){
+ if(!ids||!ids.length)return '';
+ return ids.map(id=>`<span class="tg" style="background:${tagColor(id)}1f;color:${tagColor(id)}"
+   ${click!==false?`onclick="event.stopPropagation();openTag('${id}')"`:''}>#${esc(tagName(id))}</span>`).join('');
+}
+
+/* ---------- 입력 위젯 ---------- */
+let TAGCTX=null;
+function tagBox(obj,label,get){
+ if(!obj.tags)obj.tags=[];
+ TAGCTX=obj; SUGGET=get||null;
+ return `<div class="fl">${label||'태그'}</div>
+ <div id="tgchips">${tagEditChips(obj.tags)}</div>
+ <div id="tgsugrow">${(()=>{try{return sugRow()}catch(_){return ''}})()}</div>
+ <input class="in" id="tgq" placeholder="#태그 입력 후 엔터 (예: 데이트)" autocomplete="off" autocapitalize="off" spellcheck="false"
+   oninput="tagSuggest()" oncompositionend="tagSuggest()"
+   onkeydown="if(event.key==='Enter'){event.preventDefault();tagCommit()}">
+ <div id="tgsug"></div>`;
+}
+function tagEditChips(ids){
+ if(!ids.length)return `<div style="font-size:11px;color:var(--sub);font-weight:600;padding:2px 2px 6px">아직 태그가 없어요</div>`;
+ return `<div style="display:flex;flex-wrap:wrap;gap:5px;padding:2px 0 7px">`+
+  ids.map(id=>`<span class="tg on" style="background:${tagColor(id)};color:#fff">#${esc(tagName(id))}
+    <b onclick="tagRm('${id}')">×</b></span>`).join('')+`</div>`;
+}
+function tagRedraw(){
+ const c=document.getElementById('tgchips');
+ if(c&&TAGCTX)c.innerHTML=tagEditChips(TAGCTX.tags);
+ try{sugDraw()}catch(_){}
+}
+function tagSuggest(){
+ const box=document.getElementById('tgsug'); if(!box||!TAGCTX)return;
+ const el=document.getElementById('tgq');
+ const raw=el?el.value:'';
+ const q=tagNorm(raw).toLowerCase();
+ const cur=TAGCTX.tags||[];
+ let L=allTags('cnt').filter(t=>!cur.includes(t.id));
+ if(q)L=L.filter(t=>t.n.toLowerCase().includes(q));
+ L=L.slice(0,10);
+ const exact=q&&(S.tags||[]).some(t=>t.n.toLowerCase()===q);
+ box.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px">
+   ${q&&!exact?`<span class="tg" style="background:#4C3A44;color:#fff;cursor:pointer" onclick="tagCommit()">＋ 새 태그 #${esc(tagNorm(raw))}</span>`:''}
+   ${L.map(t=>`<span class="tg" style="background:${tagColor(t.id)}1f;color:${tagColor(t.id)};cursor:pointer"
+     onclick="tagAdd('${t.id}')">#${esc(t.n)}${t.cnt?` <b style="opacity:.6">${t.cnt}</b>`:''}</span>`).join('')}
+   ${!L.length&&!q?`<span style="font-size:11px;color:var(--sub);font-weight:600">쓰던 태그가 없어요. 직접 입력해보세요</span>`:''}
+ </div>`;
+}
+function tagAdd(id){
+ if(!TAGCTX||!id)return;
+ if(!TAGCTX.tags.includes(id))TAGCTX.tags.push(id);
+ const el=document.getElementById('tgq'); if(el){el.value='';el.focus()}
+ tagRedraw(); tagSuggest();
+}
+function tagCommit(){
+ const el=document.getElementById('tgq'); if(!el||!TAGCTX)return;
+ const v=tagNorm(el.value); if(!v)return;
+ const id=ensureTag(v); save(); tagAdd(id);
+}
+function tagRm(id){
+ if(!TAGCTX)return;
+ TAGCTX.tags=TAGCTX.tags.filter(x=>x!==id);
+ tagRedraw(); tagSuggest();
+}
+
+/* ---------- 마이그레이션 ---------- */
+function migTags(){
+ if(!Array.isArray(S.tags))S.tags=[];
+ if(!S.photoMeta||typeof S.photoMeta!=='object')S.photoMeta={};
+ if(!S.tagStats||typeof S.tagStats!=='object')S.tagStats={};
+ const conv=a=>{
+  if(!Array.isArray(a))return [];
+  const out=[];
+  a.forEach(x=>{
+   if(typeof x!=='string')return;
+   const id=x.indexOf('tg:')===0?x:ensureTag(x);
+   if(id&&!out.includes(id))out.push(id);
+  });
+  return out;
+ };
+ allExp(e=>{e.tags=conv(e.tags)});
+ Object.values(S.days).forEach(d=>{Object.values(d.diary||{}).forEach(v=>{if(v)v.tags=conv(v.tags)})});
+ ['events','tasks','shop','goals','trips','bucket'].forEach(k=>(S[k]||[]).forEach(x=>{x.tags=conv(x.tags)}));
+ Object.values(S.placeMeta||{}).forEach(m=>{if(m)m.tags=conv(m.tags)});
+ Object.values(S.photoMeta||{}).forEach(m=>{if(m)m.tags=conv(m.tags)});
+ recountTags();
+}
+
+/* ---------- 태그로 모아보기 (임시: 2차에서 확장) ---------- */
+const KINDN={exp:'가계부',diary:'다이어리',photo:'사진',event:'일정',task:'할 일',shop:'장보기',goal:'목표',trip:'여행',bucket:'버킷리스트',place:'장소'};
+let openTagId=null;
+function openTag(id){openTagId=id;go('tag')}
+function tagItems(id){
+ const out=[];
+ eachTagged((o,kind,k,ex)=>{if((o.tags||[]).includes(id))out.push({o,kind,k,ex})});
+ return out;
+}
+V.tag=()=>{
+ const id=openTagId; const t=tagOf(id);
+ if(!t)return `<div class="card"><div class="empty">태그를 찾을 수 없어요</div></div>`;
+ const items=tagItems(id);
+ const g={};
+ items.forEach(x=>{(g[x.kind]=g[x.kind]||[]).push(x)});
+ const exps=(g.exp||[]).map(x=>x.o);
+ const sum=exps.filter(e=>e.t!=='in').reduce((a,b)=>a+b.a,0);
+ return `
+ <div class="hero" style="text-align:center;background:linear-gradient(135deg,${tagColor(id)}33,${tagColor(id)}14)">
+   <div class="d2" style="font-size:26px;color:${tagColor(id)}">#${esc(t.n)}</div>
+   <div class="d3">기록 ${items.length}건 · 지출 ${comma(sum)}원</div>
+ </div>
+ <div class="bs">
+   <div class="b"><span>지출</span><b style="color:var(--warn)">${won(sum)}</b></div>
+   <div class="b"><span>건수</span><b>${exps.length}건</b></div>
+   <div class="b"><span>전체 기록</span><b>${items.length}건</b></div>
+ </div>
+ ${Object.keys(g).map(kind=>`
+  <div class="sec">${KINDN[kind]||kind} ${g[kind].length}</div>
+  <div class="card">${g[kind].slice(0,40).map(x=>tagRow(x)).join('')}</div>`).join('')}
+ <div class="btns"><button class="btn g" onclick="go('tags')">태그 관리</button></div>`;
+};
+function tagRow(x){
+ const o=x.o,k=x.k;
+ if(x.kind==='exp')return expRow(o,k);
+ if(x.kind==='diary')return `<div class="row" style="cursor:pointer" onclick="openDay('${k}')">
+   <div class="ic">📔</div><div class="t"><b>${esc(o.title||kLabel(k))}</b><span>${esc((o.text||'').slice(0,40))}</span></div><div class="r">${k}</div></div>`;
+ if(x.kind==='photo')return `<div class="row" style="cursor:pointer" onclick="openDay('${k}')">
+   <div class="ic" data-ph="${x.ex}" style="background-size:cover;background-position:center"></div>
+   <div class="t"><b>사진</b><span>${k}</span></div><div class="r">›</div></div>`;
+ if(x.kind==='event')return `<div class="row" style="cursor:pointer" onclick="evSheet('${o.id}')">
+   <div class="evd" style="background:${evColor(o)}"></div>
+   <div class="t"><b>${esc(o.title)}</b><span>${o.date}${o.time?' '+o.time:''}</span></div><div class="r">›</div></div>`;
+ if(x.kind==='place')return `<div class="row" style="cursor:pointer" onclick="placeDetail('${esc(x.ex)}')">
+   <div class="ic">📍</div><div class="t"><b>${esc(x.ex)}</b><span>${esc(o.cat||'')}</span></div><div class="r">›</div></div>`;
+ const M={task:['✅',o.title,"go('life')"],shop:['🛒',o.name,"go('life')"],
+   goal:['🎯',o.title,"go('goals')"],trip:['✈️',o.title,`tripDetail('${o.id}')`],
+   bucket:['🪣',o.title,`bkDetail('${o.id}')`]};
+ const m=M[x.kind]||['📌',o.title||'',''];
+ return `<div class="row" style="cursor:pointer" onclick="${m[2]}"><div class="ic">${m[0]}</div>
+   <div class="t"><b>${esc(m[1]||'')}</b><span>${k||''}</span></div><div class="r">›</div></div>`;
+}
+
+/* ---------- 태그 관리 ---------- */
+let tagSort='cnt';
+V.tags=()=>{
+ const L=allTags(tagSort);
+ return `<div class="seg" style="margin-bottom:10px">
+   <div class="sg ${tagSort==='cnt'?'on':''}" onclick="tagSort='cnt';render()">자주 쓴 순</div>
+   <div class="sg ${tagSort==='last'?'on':''}" onclick="tagSort='last';render()">최근 순</div>
+   <div class="sg ${tagSort==='name'?'on':''}" onclick="tagSort='name';render()">이름 순</div>
+ </div>
+ <div class="card" style="display:flex;gap:8px;padding:12px">
+   <input class="in" id="ntg" placeholder="새 태그 이름" style="flex:1" onkeydown="if(event.key==='Enter')newTag()">
+   <button class="btn p" style="flex:0 0 62px;padding:0" onclick="newTag()">추가</button></div>
+ <div class="sec">전체 태그 ${L.length}</div>
+ <div class="card">
+  ${L.length?L.map(t=>`<div class="row">
+    <div class="ic" style="background:${tagColor(t.id)};color:#fff">#</div>
+    <div class="t" style="cursor:pointer" onclick="openTag('${t.id}')"><b>#${esc(t.n)}</b>
+      <span>${t.cnt||0}건${t.last?' · 최근 '+t.last:''}</span></div>
+    <div class="r" style="cursor:pointer" onclick="tagEdit('${t.id}')">관리 ›</div></div>`).join('')
+  :`<div class="empty">태그가 없어요. 기록을 저장할 때 #태그를 붙여보세요</div>`}
+ </div>`;
+};
+function newTag(){
+ const el=document.getElementById('ntg'); if(!el)return;
+ const v=tagNorm(el.value); if(!v)return toast('태그 이름을 입력해주세요');
+ ensureTag(v); el.value=''; save(); render(); toast('#'+v+' 태그를 만들었어요');
+}
+function tagEdit(id){
+ const t=tagOf(id); if(!t)return;
+ const n=tagItems(id).length;
+ sheet(`<h3>#${esc(t.n)} 관리</h3>
+ <div style="text-align:center;font-size:11.5px;color:var(--sub);font-weight:700;margin:-8px 0 12px">연결된 기록 ${n}건</div>
+ <div class="fl">이름</div>
+ <input class="in" id="tgn" value="${esc(t.n)}">
+ <div style="font-size:11px;color:var(--sub);font-weight:600;margin:6px 2px 0">이름을 바꾸면 이 태그가 붙은 모든 기록에 한 번에 반영됩니다</div>
+ <div class="fl">색상</div>
+ <div class="opts">${TAGCOLORS.map(c=>`<div class="opt sm" style="background:${c};border-color:${c};color:#fff;min-width:38px;${t.c===c?'outline:3px solid #4C3A44;outline-offset:1px':''}"
+   onclick="tagSetColor('${id}','${c}')">&nbsp;</div>`).join('')}</div>
+ <div class="fl">다른 태그와 합치기</div>
+ <select class="in" id="tgm">
+   <option value="">선택 안 함</option>
+   ${allTags('cnt').filter(x=>x.id!==id).map(x=>`<option value="${x.id}">#${esc(x.n)} (${x.cnt||0}건)</option>`).join('')}
+ </select>
+ <div style="font-size:11px;color:var(--sub);font-weight:600;margin:6px 2px 0">이 태그가 붙은 기록이 선택한 태그로 옮겨지고 이 태그는 사라집니다</div>
+ <div class="btns" style="margin-top:14px">
+   <button class="btn g" onclick="tagDel('${id}')">태그 삭제</button>
+   <button class="btn p" onclick="tagSaveEdit('${id}')">저장</button></div>
+ <button class="btn g" style="width:100%;padding:12px;margin-top:8px" onclick="close_();openTag('${id}')">이 태그 기록 보기</button>`);
+}
+function tagSetColor(id,c){const t=tagOf(id);if(t){t.c=c;save();tagEdit(id);render()}}
+function tagSaveEdit(id){
+ const t=tagOf(id); if(!t)return;
+ const mg=(document.getElementById('tgm')||{}).value||'';
+ if(mg){ tagMerge(id,mg); return }
+ const nv=tagNorm((document.getElementById('tgn')||{}).value||'');
+ if(!nv)return toast('이름을 입력해주세요');
+ if(nv===t.n){close_();render();return}
+ const nid=tagKey(nv);
+ const exist=(S.tags||[]).find(x=>x.id===nid&&x.id!==id);
+ if(exist){ tagMerge(id,nid); return }
+ eachTagged(o=>{const a=o.tags||[];const i=a.indexOf(id);if(i>=0)a[i]=nid});
+ t.id=nid; t.n=nv;
+ recountTags(); save(); close_(); render(); toast('#'+nv+' 으로 바꿨어요');
+}
+function tagMerge(from,to){
+ if(from===to)return;
+ eachTagged(o=>{const a=o.tags||[];const i=a.indexOf(from);
+   if(i>=0){a.splice(i,1); if(!a.includes(to))a.push(to)}});
+ S.tags=(S.tags||[]).filter(x=>x.id!==from);
+ recountTags(); save(); close_(); render(); toast('#'+tagName(to)+' 으로 합쳤어요');
+}
+function tagDel(id){
+ const n=tagItems(id).length;
+ sheet(`<h3>#${esc(tagName(id))} 삭제</h3>
+ <div style="text-align:center;font-size:12.5px;line-height:1.8;font-weight:600;color:#6B5A63;padding:8px 4px 4px">
+   기록 ${n}건에서 이 태그만 떨어집니다.<br>가계부·일정·다이어리 같은 원본 기록은 그대로 남습니다.</div>
+ <div class="btns"><button class="btn g" onclick="tagEdit('${id}')">취소</button>
+ <button class="btn p" onclick="tagDelGo('${id}')">삭제</button></div>`);
+}
+function tagDelGo(id){
+ eachTagged(o=>{if(o.tags)o.tags=o.tags.filter(x=>x!==id)});
+ S.tags=(S.tags||[]).filter(x=>x.id!==id);
+ recountTags(); save(); close_(); render(); toast('태그를 삭제했어요');
+}
+
+/* ---------- 사진 태그 ---------- */
+function photoMeta(id){
+ if(!S.photoMeta)S.photoMeta={};
+ if(!S.photoMeta[id])S.photoMeta[id]={tags:[]};
+ if(!Array.isArray(S.photoMeta[id].tags))S.photoMeta[id].tags=[];
+ return S.photoMeta[id];
+}
+function photoSheet(id){
+ const m=photoMeta(id);
+ sheet(`<h3>사진</h3>
+ <div class="photos" style="justify-content:center"><div class="p" data-ph="${id}" style="width:190px;height:190px"></div></div>
+ ${tagBox(m,'태그',phCtx)}
+ <div class="btns">
+   <button class="btn g" onclick="delPhoto('${id}');close_()">사진 삭제</button>
+   <button class="btn p" onclick="save();close_();render()">저장</button></div>`);
+ setTimeout(()=>{hydrate();tagSuggest()},60);
+}
+
+/* ---------- 장보기 항목 편집 ---------- */
+let SH=null,SHid=null;
+function shSheet(id){
+ SHid=id||null;
+ const f=id?(S.shop||[]).find(x=>x.id===id):null;
+ SH=f?JSON.parse(JSON.stringify(f)):{id:uid(),name:'',qty:'',memo:'',who:'our',done:false,tags:[]};
+ drawSH();
+}
+function drawSH(){
+ sheet(`<h3>${SHid?'장보기 수정':'장보기 추가'}</h3>
+ <div class="fl">품목</div>
+ <input class="in" id="shT" placeholder="예: 우유" value="${esc(SH.name)}" oninput="SH.name=this.value">
+ <div class="fl">수량 · 메모</div>
+ <div style="display:flex;gap:7px">
+   <input class="in" style="flex:0 0 90px" placeholder="2개" value="${esc(SH.qty||'')}" oninput="SH.qty=this.value">
+   <input class="in" style="flex:1" placeholder="메모" value="${esc(SH.memo||'')}" oninput="SH.memo=this.value"></div>
+ <div class="fl">담당</div>
+ <div class="seg"><div class="sg ${SH.who==='me'?'on me':''}" onclick="SH.who='me';drawSH()">${esc(S.names.me)}</div>
+   <div class="sg ${SH.who==='you'?'on you':''}" onclick="SH.who='you';drawSH()">${esc(S.names.you)}</div>
+   <div class="sg ${SH.who==='our'?'on our':''}" onclick="SH.who='our';drawSH()">같이</div></div>
+ ${tagBox(SH,'태그',shCtx)}
+ <div class="btns">
+  ${SHid?`<button class="btn g" onclick="shopDel('${SHid}');close_()">삭제</button>`:`<button class="btn g" onclick="close_()">취소</button>`}
+  <button class="btn p" onclick="shSave()">저장</button></div>`);
+ setTimeout(()=>{tagSuggest();const a=document.getElementById('shT');if(a&&!SHid)a.focus()},80);
+}
+function shSave(){
+ if(!SH.name.trim())return toast('품목을 입력해주세요');
+ S.shop=S.shop||[];
+ if(SHid){const i=S.shop.findIndex(x=>x.id===SHid);if(i>=0)S.shop[i]=SH;else S.shop.push(SH)}
+ else S.shop.push(SH);
+ save();close_();render();toast('저장했어요');
+}
+
+/* ---------- 다이어리 태그 시트 ---------- */
+function diaryTagSheet(k,p){
+ const o=D(k); o.diary[p]=o.diary[p]||{};
+ const d=o.diary[p]; if(!Array.isArray(d.tags))d.tags=[];
+ sheet(`<h3>${esc(S.names[p])}의 일기 태그</h3>
+ <div style="text-align:center;font-size:11.5px;color:var(--sub);font-weight:700;margin:-8px 0 10px">${kLabel(k)}</div>
+ ${(DIARYCTX={k,p},tagBox(d,'태그',dyCtx))}
+ <div class="btns"><button class="btn p" onclick="save();close_();render()">저장</button></div>`);
+ setTimeout(tagSuggest,60);
+}
+
+
+/* ================= 태그 자동추천 (2차) ================= */
+/* 1) 규칙 사전 — 입력 텍스트 */
+const TAGRULES=[
+ [/외식|저녁|점심|아침|야식|식당|국밥|칼국수|고기|삼겹|초밥|회|파스타|피자|치킨|햄버거|먹었|먹음|맛있/i,['외식','맛집']],
+ [/카페|커피|아메리카노|라떼|디저트|베이커리|빵|케이크|브런치/i,['카페']],
+ [/영화|시사회|cgv|메가박스|롯데시네마/i,['영화','데이트']],
+ [/전시|미술관|박물관|공연|뮤지컬|연극|콘서트/i,['전시','데이트']],
+ [/데이트|나들이|드라이브|산책|놀러/i,['데이트']],
+ [/여행|숙소|호텔|펜션|리조트|비행기|항공|기차|ktx|캠핑/i,['여행']],
+ [/제주/i,['제주','여행']],
+ [/장보|마트|이마트|홈플러스|코스트코|트레이더스|생필품/i,['장보기']],
+ [/배달|배민|요기요|쿠팡이츠/i,['배달','외식']],
+ [/병원|치과|약국|한의원|검진|진료/i,['건강']],
+ [/운동|헬스|필라테스|요가|수영|러닝|줌바|pt/i,['운동','건강']],
+ [/선물|생일|기념일|축의|부의|경조/i,['선물']],
+ [/관리비|공과금|전기|가스|수도|통신비|보험|구독|월세/i,['고정비']],
+ [/주유|기름|택시|버스|지하철|주차|톨게이트|하이패스/i,['교통']],
+ [/집|우리집|집들이|청소|빨래|정리/i,['우리집']],
+ [/부모님|엄마|아빠|장모|장인|시댁|처가|가족/i,['가족']]
+];
+/* 2) 카테고리 → 태그 */
+const CATTAG={'식비':['외식','맛집'],'카페':['카페'],'데이트':['데이트'],'주거·통신':['고정비','우리집'],
+ '교통':['교통'],'쇼핑':['쇼핑'],'건강':['건강'],'경조사·선물':['선물'],'기타':[]};
+const SUBTAG={'외식':['외식','맛집'],'배달':['배달','외식'],'장보기':['장보기'],'간식':['간식'],
+ '커피':['카페'],'디저트':['카페'],'영화':['영화','데이트'],'전시':['전시','데이트'],
+ '공연':['공연','데이트'],'나들이':['데이트'],'여행':['여행'],'운동':['운동','건강'],
+ '병원':['건강'],'약국':['건강'],'선물':['선물'],'관리비':['고정비'],'공과금':['고정비'],
+ '통신비':['고정비'],'구독':['고정비'],'월세':['고정비']};
+/* 3) 장소 업종(카카오 category_group_name) → 태그 */
+const PLTAG={'음식점':['맛집','외식'],'카페':['카페'],'문화시설':['전시','데이트'],
+ '관광명소':['여행','데이트'],'숙박':['여행'],'대형마트':['장보기'],'편의점':[],
+ '병원':['건강'],'약국':['건강'],'주유소, 충전소':['교통'],'지하철역':['교통'],
+ '학교':[],'은행':[],'부동산':[],'자동차':['교통']};
+/* 4) 일정 유형 → 태그 */
+const EVTAG={'커플':['데이트'],'가족':['가족'],'업무':['업무'],'여행':['여행'],
+ '병원':['건강'],'기념일':['기념일'],'납부일':['고정비'],'집안일':['우리집'],'약속':[],'개인':[],'기타':[]};
+
+/* 학습 키 */
+function sugKeys(c){
+ const K=[];
+ if(c.place&&(c.place.pid||c.place.name))K.push('place:'+(c.place.pid||c.place.name));
+ if(c.place&&c.place.cat)K.push('plcat:'+c.place.cat);
+ if(c.sub)K.push('sub:'+c.sub);
+ if(c.cat)K.push('cat:'+c.cat);
+ if(c.date){const d=parse(c.date);if(!isNaN(d))K.push('dow:'+d.getDay())}
+ if(c.kind)K.push('kind:'+c.kind);
+ return K;
+}
+const SUGWHY={place:'이 장소에서 자주',plcat:'비슷한 곳에서',sub:'이 분류에서 자주',
+ cat:'이 분류에서 자주',dow:'이 요일에 자주',kind:'평소 습관'};
+function learnTags(ctx,ids){
+ if(!ids||!ids.length)return;
+ if(!S.tagStats)S.tagStats={};
+ sugKeys(ctx).forEach(k=>{
+  const m=S.tagStats[k]=S.tagStats[k]||{};
+  ids.forEach(id=>{m[id]=(m[id]||0)+1});
+ });
+ const t2=today();
+ ids.forEach(id=>{const t=tagOf(id);if(t)t.last=t2});
+}
+/* 추천 계산 */
+function suggestTags(c,exclude){
+ const ex=exclude||[];
+ const sc={}, why={};
+ const add=(name,w,rz)=>{
+  const n=tagNorm(name); if(!n)return;
+  const id=tagKey(n);
+  if(ex.includes(id))return;
+  sc[id]=(sc[id]||0)+w;
+  if(!why[id])why[id]=rz;
+ };
+ /* 학습 (가중치 최상) */
+ const stats=S.tagStats||{};
+ sugKeys(c).forEach(k=>{
+  const m=stats[k]; if(!m)return;
+  const tot=Object.values(m).reduce((a,b)=>a+b,0)||1;
+  Object.keys(m).forEach(id=>{
+   if(ex.includes(id))return;
+   const share=m[id]/tot;
+   const w=3*share+Math.min(1.2,m[id]*0.18);
+   sc[id]=(sc[id]||0)+w;
+   if(!why[id])why[id]=SUGWHY[k.split(':')[0]]||'평소 습관';
+  });
+ });
+ /* 텍스트 규칙 */
+ const txt=[c.text,c.title,c.memo,c.place&&c.place.name].filter(Boolean).join(' ');
+ if(txt)TAGRULES.forEach(r=>{if(r[0].test(txt))r[1].forEach(n=>add(n,2,'입력 내용'))});
+ /* 이름 규칙 */
+ if(txt){
+  ['me','you'].forEach(p=>{const nm=(S.names[p]||'').trim();
+   if(nm&&nm.length>=2&&txt.includes(nm))add(nm+'와함께',1.6,'이름')});
+ }
+ /* 카테고리 */
+ if(c.cat&&CATTAG[c.cat])CATTAG[c.cat].forEach(n=>add(n,2,'카테고리'));
+ if(c.sub&&SUBTAG[c.sub])SUBTAG[c.sub].forEach(n=>add(n,2.2,'세부 분류'));
+ if(c.kind==='event'&&c.cat&&EVTAG[c.cat])EVTAG[c.cat].forEach(n=>add(n,2,'일정 유형'));
+ /* 장소 */
+ if(c.place){
+  const pc=c.place.cat||((S.placeMeta||{})[c.place.pid||c.place.name]||{}).cat;
+  if(pc){
+   if(PLTAG[pc])PLTAG[pc].forEach(n=>add(n,2,'장소 업종'));
+   else if(['맛집','카페','여행','숙박','쇼핑','데이트','공원','문화','병원'].includes(pc))add(pc,2,'장소 분류');
+  }
+ }
+ /* 날짜 */
+ if(c.date){
+  const d=parse(c.date);
+  if(!isNaN(d)){
+   if(d.getDay()===0||d.getDay()===6)add('주말',1.4,'주말');
+   if(annivOn(c.date).length)add('기념일',1.6,'기념일');
+   (S.trips||[]).forEach(tp=>{if(tp.start&&tp.end&&c.date>=tp.start&&c.date<=tp.end){
+     add(tp.title,2.4,'여행 기간'); add('여행',1.4,'여행 기간')}});
+  }
+ }
+ /* 자주 쓰는 태그 (약한 보정) */
+ allTags('cnt').slice(0,6).forEach((t,i)=>{if(!ex.includes(t.id))sc[t.id]=(sc[t.id]||0)+0.35-i*0.04});
+ return Object.keys(sc)
+  .map(id=>({id,n:tagName(id),s:sc[id],w:why[id]||'자주 쓰는 태그',isNew:!tagOf(id)}))
+  .sort((a,b)=>b.s-a.s).slice(0,5);
+}
+
+/* 추천 UI */
+let SUGGET=null;
+function sugRow(){
+ if(!SUGGET||!TAGCTX)return '';
+ let c={}; try{c=SUGGET()||{}}catch(_){c={}}
+ const L=suggestTags(c,TAGCTX.tags||[]);
+ if(!L.length)return '';
+ return `<div style="font-size:11px;color:var(--sub);font-weight:800;margin:10px 2px 5px">관련 태그 추천</div>
+  <div style="display:flex;flex-wrap:wrap;gap:5px">
+  ${L.map(x=>`<span class="tg" style="background:#fff;border:1.3px dashed ${tagColor(x.id)};color:${tagColor(x.id)}"
+    onclick="sugPick('${x.id}','${esc(x.n)}')">＋ #${esc(x.n)}<b style="opacity:.5;font-size:9.5px;font-weight:700">${esc(x.w)}</b></span>`).join('')}
+  </div>`;
+}
+function sugDraw(){
+ const b=document.getElementById('tgsugrow'); if(b)b.innerHTML=sugRow();
+}
+function sugPick(id,n){
+ if(!TAGCTX)return;
+ if(!tagOf(id))ensureTag(n);
+ if(!TAGCTX.tags.includes(id))TAGCTX.tags.push(id);
+ save(); tagRedraw(); sugDraw(); tagSuggest();
+}
+
+/* ---------- 컨텍스트 ---------- */
+function exCtx(){return {kind:'exp',text:EX?EX.name:'',cat:EX?EX.cat:'',sub:EX?EX.sub:'',
+ place:EX?EX.place:null,date:EX?EX.date:today()}}
+function evCtx(){return {kind:'event',text:(EV?EV.title:'')+' '+(EV?EV.memo||'':''),cat:EV?EV.cat:'',
+ place:EV?EV.place:null,date:EV?EV.date:today()}}
+function tkCtx(){return {kind:'task',text:TK?TK.title:'',date:(TK&&TK.due)||today()}}
+function glCtx(){return {kind:'goal',text:(GL?GL.title:'')+' '+(GL?GL.memo||'':''),cat:GL?GL.type:'',date:(GL&&GL.due)||today()}}
+function tpCtx(){return {kind:'trip',text:(TP?TP.title:'')+' '+(TP?TP.memo||'':''),date:(TP&&TP.start)||today()}}
+function bkCtx(){return {kind:'bucket',text:(BK?BK.title:'')+' '+(BK?BK.memo||'':''),cat:BK?BK.cat:'',
+ place:BK?BK.place:null,date:(BK&&BK.due)||today()}}
+function shCtx(){return {kind:'shop',text:(SH?SH.name:'')+' '+(SH?SH.memo||'':''),date:today()}}
+let DIARYCTX={k:'',p:'me'};
+function dyCtx(){const o=S.days[DIARYCTX.k]||{},d=(o.diary||{})[DIARYCTX.p]||{};
+ return {kind:'diary',text:(d.title||'')+' '+(d.text||''),date:DIARYCTX.k}}
+let PLACECTX=null;
+function plCtx(){const p=PLACECTX||{};return {kind:'place',text:p.name||'',place:p,date:today()}}
+function phCtx(){return {kind:'photo',date:selDate||today()}}
+
+/* ================= 태그 통계 (2차 확장) ================= */
+let tagYear=null;
+function tagStat(id,year){
+ const st={cnt:0,out:0,inn:0,n:0,diary:0,photo:0,place:new Set(),event:0,trip:0,months:Array(12).fill(0),co:{}};
+ eachTagged((o,kind,k,ex)=>{
+  const has=(o.tags||[]).includes(id);
+  if(!has)return;
+  if(year&&k&&k.slice(0,4)!==String(year))return;
+  st.cnt++;
+  (o.tags||[]).forEach(t2=>{if(t2!==id)st.co[t2]=(st.co[t2]||0)+1});
+  if(kind==='exp'){
+   if(o.t==='in')st.inn+=o.a; else {st.out+=o.a;st.n++;
+     const d=parse(k); if(!isNaN(d))st.months[d.getMonth()]+=o.a}
+   if(o.place&&o.place.name)st.place.add(o.place.name);
+  }
+  else if(kind==='diary')st.diary++;
+  else if(kind==='photo')st.photo++;
+  else if(kind==='place')st.place.add(ex);
+  else if(kind==='event')st.event++;
+  else if(kind==='trip')st.trip++;
+ });
+ return st;
+}
+V.tag=()=>{
+ const id=openTagId, t=tagOf(id);
+ if(!t)return `<div class="card"><div class="empty">태그를 찾을 수 없어요</div></div>`;
+ const yr=tagYear||new Date().getFullYear();
+ const all=tagStat(id,null), y=tagStat(id,yr);
+ const items=tagItems(id);
+ const g={}; items.forEach(x=>{(g[x.kind]=g[x.kind]||[]).push(x)});
+ const co=Object.keys(all.co).sort((a,b)=>all.co[b]-all.co[a]).slice(0,6);
+ const mx=Math.max(1,...y.months);
+ return `
+ <div class="hero" style="text-align:center;background:linear-gradient(135deg,${tagColor(id)}33,${tagColor(id)}14)">
+   <div class="d2" style="font-size:26px;color:${tagColor(id)}">#${esc(t.n)}</div>
+   <div class="d3">전체 기록 ${all.cnt}건 · 지출 ${comma(all.out)}원</div>
+ </div>
+ <div class="mrow"><div class="m" style="font-size:15px">${yr}년</div>
+   <div class="nav"><button onclick="tagYear=${yr-1};render()">‹</button><button onclick="tagYear=${yr+1};render()">›</button></div></div>
+ <div class="bs">
+   <div class="b"><span>${yr} 지출</span><b style="color:var(--warn)">${won(y.out)}</b></div>
+   <div class="b"><span>횟수</span><b>${y.n}회</b></div>
+   <div class="b"><span>평균</span><b>${y.n?won(Math.round(y.out/y.n)):0}</b></div>
+ </div>
+ <div class="bs">
+   <div class="b"><span>다이어리</span><b>${all.diary}개</b></div>
+   <div class="b"><span>장소</span><b>${all.place.size}곳</b></div>
+   <div class="b"><span>사진</span><b>${all.photo}장</b></div>
+ </div>
+ ${y.out?`<div class="sec">${yr}년 월별 지출</div>
+ <div class="card">
+   <div class="trend" style="height:74px">${y.months.map(v=>`<i class="${v===mx?'hi':''}" style="height:${v/mx*100}%"></i>`).join('')}</div>
+   <div class="cmp">최대 ${comma(mx)}원 · 합계 ${comma(y.out)}원${y.inn?` · 수입 ${comma(y.inn)}원`:''}</div>
+ </div>`:''}
+ ${co.length?`<div class="sec">함께 붙은 태그</div>
+ <div class="card"><div style="display:flex;flex-wrap:wrap;gap:5px">
+   ${co.map(x=>`<span class="tg" style="background:${tagColor(x)}1f;color:${tagColor(x)}" onclick="openTag('${x}')">#${esc(tagName(x))} ${all.co[x]}</span>`).join('')}
+ </div></div>`:''}
+ ${Object.keys(g).map(kind=>`
+  <div class="sec">${KINDN[kind]||kind} ${g[kind].length}</div>
+  <div class="card">${g[kind].slice(0,40).map(x=>tagRow(x)).join('')}</div>`).join('')}
+ <div class="btns"><button class="btn g" onclick="tagEdit('${id}')">태그 관리</button>
+   <button class="btn p" onclick="go('tags')">전체 태그</button></div>`;
+};
+
+
+/* ================= 가계부 엑셀 (3차) ================= */
+const XLSX_CDN=['https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js',
+ 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
+ 'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js'];
+let XLSTATE='idle', XLERR='';
+function loadXLSX(cb){
+ if(window.XLSX)return cb(true);
+ if(XLSTATE==='loading'){setTimeout(()=>cb(!!window.XLSX),1500);return}
+ if(location.protocol==='file:'){XLERR='파일로 직접 열면 엑셀 기능을 쓸 수 없습니다. 인터넷 주소로 접속해주세요';return cb(false)}
+ XLSTATE='loading';XLERR='';
+ let i=0;
+ const one=()=>{
+  if(i>=XLSX_CDN.length){XLSTATE='fail';XLERR='엑셀 모듈을 내려받지 못했습니다 (인터넷 확인)';return cb(false)}
+  const el=document.createElement('script'); el.src=XLSX_CDN[i++];
+  el.onload=()=>{if(window.XLSX){XLSTATE='ready';cb(true)}else one()};
+  el.onerror=()=>one();
+  document.head.appendChild(el);
+ };
+ one();
+}
+function dlBlob(blob,name){
+ const u=URL.createObjectURL(blob), a=document.createElement('a');
+ a.href=u; a.download=name; document.body.appendChild(a); a.click();
+ setTimeout(()=>{URL.revokeObjectURL(u);a.remove()},1500);
+}
+function sheetToBlob(wb,name){
+ const out=XLSX.write(wb,{bookType:'xlsx',type:'array'});
+ dlBlob(new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),name);
+}
+
+/* ---------- 값 파서 ---------- */
+const XCOLS=['날짜','구분','내용','금액','카테고리','소분류','결제자','공동/개인','결제수단','장소','태그','메모'];
+const ALIAS={
+ '날짜':['날짜','일자','사용일자','거래일자','거래일','사용일','date','일시','결제일'],
+ '구분':['구분','유형','수입지출','입출금','타입','type','분류구분'],
+ '내용':['내용','사용내역','내역','적요','상호','가맹점','사용처','제목','메모내용','desc','description'],
+ '금액':['금액','출금액','사용금액','결제금액','입금액','amount','가격','값'],
+ '카테고리':['카테고리','분류','대분류','항목','category'],
+ '소분류':['소분류','세부분류','중분류','sub'],
+ '결제자':['결제자','사용자','지출자','명의','결제인','payer','who'],
+ '공동/개인':['공동/개인','공동개인','공동여부','공용','구분2','scope'],
+ '결제수단':['결제수단','결제방법','수단','카드','지불수단','pay','method'],
+ '장소':['장소','위치','매장','place','상호명'],
+ '태그':['태그','tag','tags','해시태그'],
+ '메모':['메모','비고','note','memo','기타']
+};
+function normHead(s){return String(s==null?'':s).replace(/\s|\(.*?\)|\[.*?\]/g,'').toLowerCase()}
+function autoMap(headers){
+ const m={}, used={};
+ const NH=headers.map(normHead);
+ /* 1단계: 정확히 일치 */
+ XCOLS.forEach(col=>{
+  const cands=ALIAS[col].map(normHead);
+  for(let i=0;i<NH.length;i++){
+   if(used[i]||!NH[i])continue;
+   if(cands.includes(NH[i])){m[col]=i;used[i]=1;break}
+  }
+ });
+ /* 2단계: 헤더가 후보를 포함하는 경우만 (역방향 금지) */
+ XCOLS.forEach(col=>{
+  if(m[col]!==undefined)return;
+  const cands=ALIAS[col].map(normHead).filter(c=>c.length>=2);
+  for(let i=0;i<NH.length;i++){
+   if(used[i]||!NH[i])continue;
+   if(cands.some(c=>NH[i].includes(c))){m[col]=i;used[i]=1;break}
+  }
+ });
+ return m;
+}
+function xDate(v){
+ if(v==null||v==='')return null;
+ if(v instanceof Date&&!isNaN(v))return key(v);
+ if(typeof v==='number'&&v>20000&&v<80000){
+  const d=new Date(Math.round((v-25569)*86400000));
+  const d2=new Date(d.getTime()+d.getTimezoneOffset()*60000);
+  return isNaN(d2)?null:key(d2);
+ }
+ let s=String(v).trim().replace(/[.]/g,'-').replace(/\//g,'-').replace(/\s.*$/,'');
+ let m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+ if(!m){const m2=s.match(/^(\d{4})(\d{2})(\d{2})$/); if(m2)m=m2}
+ if(!m)return null;
+ const y=+m[1],mo=+m[2],da=+m[3];
+ if(mo<1||mo>12||da<1||da>31)return null;
+ const d=new Date(y,mo-1,da);
+ if(d.getFullYear()!==y||d.getMonth()!==mo-1||d.getDate()!==da)return null;
+ return key(d);
+}
+function xNum(v){
+ if(v==null||v==='')return null;
+ if(typeof v==='number')return Math.round(Math.abs(v));
+ let s=String(v).trim().replace(/,/g,'').replace(/원$/,'').replace(/^[+\-]/,'');
+ if(/만|천|억/.test(s))return NaN;
+ if(!/^\d+(\.\d+)?$/.test(s))return NaN;
+ return Math.round(Math.abs(+s));
+}
+function xType(v,amt){
+ const s=String(v==null?'':v).trim();
+ if(/수입|입금|income|in$|\+/i.test(s))return 'in';
+ if(/지출|출금|expense|out$|-/i.test(s))return 'out';
+ if(typeof amt==='number'&&amt<0)return 'out';
+ return 'out';
+}
+function xWho(v){
+ const s=String(v==null?'':v).trim();
+ if(!s)return null;
+ if(s===S.names.me)return 'me';
+ if(s===S.names.you)return 'you';
+ if(/공용|공동|둘|같이|our|공통/.test(s))return 'our';
+ return null;
+}
+function xScope(v){
+ const s=String(v==null?'':v).trim();
+ if(!s)return null;
+ if(/공동|공용|같이|our|공통/.test(s))return 'our';
+ if(/개인|각자|per|본인/.test(s))return 'per';
+ return null;
+}
+function xPay(v){
+ const s=String(v==null?'':v).trim();
+ if(!s)return {type:'cash',issuer:''};
+ if(/현금|cash/.test(s))return {type:'cash',issuer:''};
+ if(/계좌|이체|transfer/.test(s))return {type:'cash',issuer:'계좌이체'};
+ const pt=(S.pay.point||[]).find(x=>s.includes(x));
+ if(pt)return {type:'point',issuer:pt};
+ if(/포인트|쿠폰|상품권|페이/.test(s))return {type:'point',issuer:s.replace(/카드/g,'').trim()};
+ let cd=(S.pay.card||[]).find(x=>s.includes(x));
+ if(!cd){const bare=s.replace(/카드|체크|신용/g,'').trim();
+   if(bare.length>=2)cd=(S.pay.card||[]).find(x=>x.includes(bare))}
+ if(cd)return {type:'card',issuer:cd};
+ if(/카드|card/.test(s))return {type:'card',issuer:s.replace(/카드/g,'').trim()};
+ return {type:'cash',issuer:s};
+}
+function xTags(v){
+ return String(v==null?'':v).split(/[,;|\/]/).map(x=>tagNorm(x)).filter(Boolean);
+}
+const expSig=e=>[e.date,e.a,String(e.name||'').trim(),e.by,(e.pay&&e.pay.type)+':'+((e.pay&&e.pay.issuer)||'')].join('|');
+
+/* ---------- 상태 ---------- */
+let XI=null;   /* import */
+let XO=null;   /* export */
+function defXO(){
+ const n=new Date();
+ return {range:'year',from:key(new Date(n.getFullYear(),0,1)),to:key(n),
+   type:'all',by:'all',scope:'all',cat:'',tag:'',name:''};
+}
+V.xls=()=>`
+ <div class="sec" style="margin-top:6px">엑셀 가져오기</div>
+ <div class="card">
+   <div class="cmp" style="margin-top:0">엑셀 파일(.xlsx, .xls, .csv)에 있는 가계부를 한 번에 등록합니다.
+     파일은 기기 안에서만 처리되고 서버로 올라가지 않습니다.</div>
+   <div style="display:flex;gap:7px;margin-top:11px">
+     <button class="btn g" style="padding:13px;font-size:12.5px" onclick="xlTemplate()">📄 양식 받기</button>
+     <button class="btn p" style="padding:13px;font-size:12.5px" onclick="xlPick()">📥 파일 선택</button></div>
+ </div>
+ <div class="sec">엑셀 내보내기</div>
+ <div class="card">
+   <div class="cmp" style="margin-top:0">기간과 조건을 골라 가계부를 엑셀로 저장합니다.
+     상세 · 월별요약 · 카테고리별 · 태그별 4개 시트로 만들어집니다.</div>
+   <button class="btn p" style="width:100%;padding:13px;margin-top:11px" onclick="xoSheet()">📤 내보내기 설정</button>
+ </div>
+ <div class="card" style="font-size:11.5px;color:var(--sub);line-height:1.75;font-weight:600">
+   가져오기는 등록 전에 미리보기 · 오류 검사 · 중복 검사를 거칩니다.
+   컬럼 이름이 달라도 자동으로 맞춰주고, 틀리면 직접 연결할 수 있습니다.
+   오류가 난 줄은 사유를 붙여 엑셀로 다시 받을 수 있습니다.
+ </div>`;
+
+/* ---------- 양식 ---------- */
+function xlTemplate(){
+ loadXLSX(ok=>{
+  if(!ok)return xlFail();
+  const rows=[XCOLS,
+   ['2026-08-15','지출','저녁식사',85000,'식비','외식',S.names.me,'공동','신한카드','옛골 손칼국수','#데이트,#외식','로키와 저녁'],
+   ['2026-08-16','지출','장보기',120000,'식비','장보기',S.names.you,'공동','현대카드','이마트','#장보기','주말 장보기'],
+   ['2026-08-25','수입','8월 급여',3200000,'급여','',S.names.me,'개인','','','',''] ];
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:12},{wch:7},{wch:18},{wch:12},{wch:12},{wch:10},{wch:10},{wch:10},{wch:12},{wch:18},{wch:16},{wch:20}];
+  const help=XLSX.utils.aoa_to_sheet([
+   ['컬럼','설명','예시'],
+   ['날짜','필수. YYYY-MM-DD','2026-08-15'],
+   ['구분','지출 또는 수입. 비우면 지출','지출'],
+   ['내용','내역 이름','저녁식사'],
+   ['금액','필수. 숫자만. 85만원 같은 표기는 오류','85000'],
+   ['카테고리','앱에 없으면 새로 만들지 선택','식비'],
+   ['소분류','선택','외식'],
+   ['결제자',''+S.names.me+' / '+S.names.you+' / 공용','+S.names.me'],
+   ['공동/개인','공동 또는 개인. 비우면 공동','공동'],
+   ['결제수단','카드사명, 현금, 계좌이체, 페이 등','신한카드'],
+   ['장소','상호명','옛골 손칼국수'],
+   ['태그','쉼표로 여러 개. #은 있어도 없어도 됨','#데이트,#외식'],
+   ['메모','선택','로키와 저녁']
+  ]);
+  help['!cols']=[{wch:12},{wch:40},{wch:18}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'가계부');
+  XLSX.utils.book_append_sheet(wb,help,'작성안내');
+  sheetToBlob(wb,'가계부_업로드양식.xlsx');
+  toast('양식을 저장했어요');
+ });
+}
+function xlFail(){
+ sheet(`<h3>엑셀 기능을 쓸 수 없어요</h3>
+  <div style="text-align:center;padding:14px 6px">
+   <div style="font-size:28px">😢</div>
+   <div style="font-size:12.5px;font-weight:800;margin-top:9px">${esc(XLERR||'엑셀 모듈을 불러오지 못했습니다')}</div>
+   <div style="font-size:11.5px;color:var(--sub);margin-top:9px;line-height:1.7;font-weight:600">
+     인터넷 연결을 확인하고 다시 시도해주세요.</div></div>
+  <div class="btns"><button class="btn p" onclick="close_()">닫기</button></div>`);
+}
+
+/* ---------- 가져오기 ---------- */
+function xlPick(){document.getElementById('xin').click()}
+document.getElementById('xin').onchange=async e=>{
+ const f=e.target.files[0]; e.target.value='';
+ if(!f)return;
+ loadXLSX(ok=>{
+  if(!ok)return xlFail();
+  const fr=new FileReader();
+  fr.onload=ev=>{
+   try{
+    const wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array',cellDates:true});
+    const shn=wb.SheetNames.find(n=>!/안내|help|readme/i.test(n))||wb.SheetNames[0];
+    const aoa=XLSX.utils.sheet_to_json(wb.Sheets[shn],{header:1,raw:true,defval:''});
+    const rows=aoa.filter(r=>r.some(c=>String(c==null?'':c).trim()!==''));
+    if(rows.length<2)return toast('데이터가 없는 파일이에요');
+    XI={file:f.name,sheet:shn,sheets:wb.SheetNames,headers:rows[0].map(x=>String(x==null?'':x)),
+        body:rows.slice(1),map:autoMap(rows[0].map(x=>String(x==null?'':x))),
+        newCats:[],newTags:[],dupMode:'skip',step:2,ok:[],bad:[],dup:[]};
+    xiDraw();
+   }catch(err){toast('파일을 읽지 못했어요');console&&console.error&&console.error(err)}
+  };
+  fr.readAsArrayBuffer(f);
+ });
+};
+function xiDraw(){
+ if(!XI)return;
+ if(XI.step===2)return xiMap();
+ if(XI.step===3)return xiPreview();
+ if(XI.step===4)return xiResult();
+}
+function xiMap(){
+ const H=XI.headers;
+ const sample=XI.body.slice(0,2);
+ sheet(`<h3>컬럼 연결</h3>
+ <div style="text-align:center;font-size:11.5px;color:var(--sub);font-weight:700;margin:-8px 0 12px">
+   ${esc(XI.file)} · ${XI.body.length}줄</div>
+ <div style="max-height:46vh;overflow-y:auto">
+ ${XCOLS.map(col=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px dashed var(--line)">
+   <div style="flex:0 0 84px;font-size:12px;font-weight:800">${col}${col==='날짜'||col==='금액'?'<span style="color:var(--warn)"> *</span>':''}</div>
+   <select class="in" style="flex:1;padding:9px 10px;font-size:12.5px" onchange="XI.map['${col}']=this.value===''?undefined:+this.value">
+     <option value="">— 없음 —</option>
+     ${H.map((h,i)=>`<option value="${i}" ${XI.map[col]===i?'selected':''}>${esc(h||('열'+(i+1)))}</option>`).join('')}
+   </select></div>`).join('')}
+ </div>
+ ${sample.length?`<div class="fl">미리보기</div>
+ <div style="font-size:10.5px;color:var(--sub);font-weight:600;line-height:1.7;background:#FAF3F6;border-radius:12px;padding:9px 11px;max-height:16vh;overflow:auto">
+  ${sample.map(r=>esc(r.slice(0,8).join(' | ')).slice(0,140)).join('<br>')}</div>`:''}
+ <div class="btns"><button class="btn g" onclick="close_()">취소</button>
+   <button class="btn p" onclick="xiValidate()">다음</button></div>`);
+}
+function xiValidate(){
+ const M=XI.map, B=XI.body;
+ const g=(r,c)=>M[c]===undefined?'':r[M[c]];
+ const ok=[],bad=[];
+ const existing=new Set(); allExp(e=>existing.add(expSig(e)));
+ const seen=new Set();
+ const newCats=new Set(), newTags=new Set();
+ B.forEach((r,i)=>{
+  const errs=[];
+  const date=xDate(g(r,'날짜'));
+  if(!date)errs.push('날짜 형식 오류');
+  const rawA=g(r,'금액');
+  const a=xNum(rawA);
+  if(a===null||isNaN(a))errs.push('금액 형식 오류');
+  else if(a<=0)errs.push('금액이 0');
+  const t=xType(g(r,'구분'),typeof rawA==='number'?rawA:null);
+  let cat=String(g(r,'카테고리')||'').trim();
+  let sub=String(g(r,'소분류')||'').trim();
+  if(cat.includes('>')){const p=cat.split('>');cat=p[0].trim();if(!sub)sub=p[1].trim()}
+  if(!cat)cat=(t==='in'?(S.incomeCats[0]||{}).n:(S.cats[0]||{}).n)||'기타';
+  const L=catsFor(t);
+  if(!L.some(x=>x.n===cat))newCats.add(t+'|'+cat);
+  const by=xWho(g(r,'결제자'))||S.profile;
+  const sc=xScope(g(r,'공동/개인'))||'our';
+  const pay=xPay(g(r,'결제수단'));
+  const tags=xTags(g(r,'태그'));
+  tags.forEach(x=>{if(!tagOf(tagKey(x)))newTags.add(x)});
+  const row={id:uid(),date,t,a:a||0,cat,sub,icon:(catOf(cat,t)||{}).e||'📦',
+   by,sc:t==='in'?'per':sc,pay,place:String(g(r,'장소')||'').trim()?{name:String(g(r,'장소')).trim(),address:'',lat:null,lng:null,pid:''}:null,
+   name:String(g(r,'내용')||'').trim(),memo:String(g(r,'메모')||'').trim(),
+   tags:[],_tagNames:tags,at:Date.now(),_line:i+2};
+  if(errs.length){bad.push({line:i+2,raw:r,err:errs.join(', ')});return}
+  const sig=expSig(row);
+  row._dup = existing.has(sig)||seen.has(sig);
+  seen.add(sig);
+  ok.push(row);
+ });
+ XI.ok=ok; XI.bad=bad;
+ XI.dup=ok.filter(r=>r._dup);
+ XI.newCats=[...newCats]; XI.newTags=[...newTags];
+ XI.step=3; xiDraw();
+}
+function xiPreview(){
+ const ok=XI.ok, bad=XI.bad, dup=XI.dup;
+ const willAdd=XI.dupMode==='skip'?ok.filter(r=>!r._dup).length:ok.length;
+ const sum=ok.filter(r=>r.t!=='in'&&(XI.dupMode!=='skip'||!r._dup)).reduce((a,b)=>a+b.a,0);
+ sheet(`<h3>미리보기</h3>
+ <div class="bs" style="margin-bottom:10px">
+   <div class="b"><span>전체</span><b>${XI.body.length}건</b></div>
+   <div class="b"><span>정상</span><b style="color:var(--ok)">${ok.length}건</b></div>
+   <div class="b"><span>오류</span><b style="color:var(--warn)">${bad.length}건</b></div>
+ </div>
+ ${dup.length?`<div class="fl">중복 가능성 ${dup.length}건</div>
+ <div style="font-size:11px;color:var(--sub);font-weight:600;margin-bottom:6px">날짜 · 금액 · 내용 · 결제자 · 결제수단이 같은 기록이 이미 있어요</div>
+ <div class="seg">
+   <div class="sg ${XI.dupMode==='skip'?'on':''}" onclick="XI.dupMode='skip';xiDraw()">중복 제외</div>
+   <div class="sg ${XI.dupMode==='all'?'on':''}" onclick="XI.dupMode='all';xiDraw()">모두 등록</div>
+ </div>`:''}
+ ${XI.newCats.length?`<div class="fl">새 카테고리 ${XI.newCats.length}개</div>
+ <div style="display:flex;flex-wrap:wrap;gap:5px">${XI.newCats.map(x=>`<span class="chip">${esc(x.split('|')[1])}</span>`).join('')}</div>
+ <div style="font-size:11px;color:var(--sub);font-weight:600;margin-top:5px">등록하면 자동으로 만들어집니다</div>`:''}
+ ${XI.newTags.length?`<div class="fl">새 태그 ${XI.newTags.length}개</div>
+ <div style="display:flex;flex-wrap:wrap;gap:5px">${XI.newTags.slice(0,20).map(x=>`<span class="chip">#${esc(x)}</span>`).join('')}</div>`:''}
+ <div class="fl">등록될 내역 (앞 8줄)</div>
+ <div style="max-height:26vh;overflow-y:auto">
+  ${ok.slice(0,8).map(r=>`<div class="row">
+    <div class="ic">${r.icon}</div>
+    <div class="t"><b>${esc(r.name||r.cat)}${r._dup?' <span style="color:var(--warn);font-size:10px">중복</span>':''}</b>
+      <span>${r.date} · ${esc(r.cat)}${r.sub?' › '+esc(r.sub):''} · ${esc(byName(r.by))} · ${esc(r.sc==='our'?'공동':'개인')}</span></div>
+    <div class="r" style="color:${r.t==='in'?'var(--ok)':'var(--warn)'}">${r.t==='in'?'+':'-'}${comma(r.a)}</div></div>`).join('')}
+ </div>
+ ${bad.length?`<div class="fl">오류 ${bad.length}건</div>
+ <div style="max-height:16vh;overflow-y:auto;font-size:11px;color:var(--sub);font-weight:600;line-height:1.7">
+   ${bad.slice(0,10).map(b=>`${b.line}행 — ${esc(b.err)}`).join('<br>')}</div>
+ <button class="btn g" style="width:100%;padding:11px;margin-top:8px;font-size:12.5px" onclick="xiErrXlsx()">오류 데이터 엑셀로 받기</button>`:''}
+ <div class="btns">
+  <button class="btn g" onclick="XI.step=2;xiDraw()">뒤로</button>
+  <button class="btn p" onclick="xiCommit()">${comma(willAdd)}건 등록하기</button></div>`);
+}
+async function xiCommit(){
+ const list=XI.dupMode==='skip'?XI.ok.filter(r=>!r._dup):XI.ok;
+ if(!list.length){toast('등록할 내역이 없어요');return}
+ sheet(`<h3>등록 중</h3>
+  <div style="text-align:center;padding:22px 8px">
+   <div style="font-size:30px">📥</div>
+   <div id="xip" style="font-size:13px;font-weight:800;margin-top:10px">0 / ${comma(list.length)}건</div>
+   <div class="pg" style="margin-top:14px"><i id="xib" style="width:2%"></i></div></div>`);
+ /* 새 카테고리 */
+ XI.newCats.forEach(x=>{
+  const [t,n]=x.split('|');
+  const L=t==='in'?S.incomeCats:S.cats;
+  if(!L.some(c=>c.n===n))L.push(t==='in'?{n,e:'💰'}:{n,e:'📦',subs:[]});
+ });
+ /* 새 태그 */
+ XI.newTags.forEach(n=>ensureTag(n));
+ let done=0;
+ const CH=200;
+ for(let i=0;i<list.length;i+=CH){
+  const part=list.slice(i,i+CH);
+  part.forEach(r=>{
+   const o=D(r.date);
+   r.tags=(r._tagNames||[]).map(n=>ensureTag(n)).filter(Boolean);
+   const sub=(r.sub||'').trim();
+   if(sub){const c=S.cats.find(c=>c.n===r.cat); if(c&&c.subs&&!c.subs.includes(sub))c.subs.push(sub)}
+   delete r._tagNames; delete r._dup; delete r._line;
+   o.exp.push(r);
+   if(r.place&&r.place.name&&!o.places.some(p=>(p.n||p.name)===r.place.name))
+     o.places.push({n:r.place.name,c:''});
+  });
+  done+=part.length;
+  const a=document.getElementById('xip'), b=document.getElementById('xib');
+  if(a)a.textContent=`${comma(done)} / ${comma(list.length)}건`;
+  if(b)b.style.width=Math.max(2,done/list.length*100)+'%';
+  await new Promise(r=>setTimeout(r,0));
+ }
+ recountTags();
+ try{DB.set('state',JSON.stringify(S))}catch(_){}
+ save();
+ XI.added=done; XI.step=4; xiDraw(); render();
+}
+function xiResult(){
+ sheet(`<h3>등록 완료</h3>
+ <div class="bs" style="margin-bottom:12px">
+   <div class="b"><span>전체</span><b>${comma(XI.body.length)}건</b></div>
+   <div class="b"><span>등록</span><b style="color:var(--ok)">${comma(XI.added||0)}건</b></div>
+   <div class="b"><span>중복 제외</span><b>${XI.dupMode==='skip'?comma(XI.dup.length):0}건</b></div>
+ </div>
+ <div class="card" style="margin:0"><div class="prow" style="margin-top:0"><span>오류</span>
+   <b style="color:${XI.bad.length?'var(--warn)':'var(--ok)'}">${XI.bad.length}건</b></div>
+ ${XI.bad.length?`<button class="btn g" style="width:100%;padding:11px;margin-top:9px;font-size:12.5px" onclick="xiErrXlsx()">오류 데이터 엑셀로 받기</button>
+ <div style="font-size:11px;color:var(--sub);font-weight:600;margin-top:7px;line-height:1.7">
+   엑셀에서 고친 뒤 다시 올리면 됩니다</div>`:''}</div>
+ <div class="btns"><button class="btn g" onclick="close_();go('led')">가계부 보기</button>
+   <button class="btn p" onclick="close_()">닫기</button></div>`);
+}
+function xiErrXlsx(){
+ loadXLSX(ok=>{
+  if(!ok)return xlFail();
+  const rows=[['행','오류 사유'].concat(XI.headers)];
+  XI.bad.forEach(b=>rows.push([b.line,b.err].concat(b.raw.map(x=>x==null?'':x))));
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:6},{wch:22}].concat(XI.headers.map(()=>({wch:14})));
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'오류');
+  sheetToBlob(wb,'가계부_오류데이터.xlsx');
+  toast('오류 목록을 저장했어요');
+ });
+}
+
+/* ---------- 내보내기 ---------- */
+function xoSheet(){ XO=XO||defXO(); drawXO() }
+function drawXO(){
+ const RANGES=[['all','전체'],['year','올해'],['month','이번 달'],['last','지난달'],['custom','직접 지정']];
+ sheet(`<h3>엑셀 내보내기</h3>
+ <div class="fl">기간</div>
+ <div class="opts">${RANGES.map(r=>`<div class="opt sm ${XO.range===r[0]?'on':''}" onclick="xoRange('${r[0]}')">${r[1]}</div>`).join('')}</div>
+ ${XO.range==='custom'?`<div style="display:flex;gap:7px;align-items:center;margin-top:8px">
+   <input class="in" type="date" style="flex:1" value="${XO.from}" onchange="XO.from=this.value">
+   <span style="color:var(--sub)">~</span>
+   <input class="in" type="date" style="flex:1" value="${XO.to}" onchange="XO.to=this.value"></div>`
+  :`<div style="font-size:11px;color:var(--sub);font-weight:600;margin:6px 2px 0">${XO.range==='all'?'전체 기간':XO.from+' ~ '+XO.to}</div>`}
+ <div class="fl">종류</div>
+ <div class="seg">
+   <div class="sg ${XO.type==='all'?'on':''}" onclick="XO.type='all';drawXO()">전체</div>
+   <div class="sg ${XO.type==='out'?'on':''}" onclick="XO.type='out';drawXO()">지출</div>
+   <div class="sg ${XO.type==='in'?'on':''}" onclick="XO.type='in';drawXO()">수입</div>
+ </div>
+ <div class="fl">결제자</div>
+ <div class="seg">
+   <div class="sg ${XO.by==='all'?'on':''}" onclick="XO.by='all';drawXO()">전체</div>
+   <div class="sg ${XO.by==='me'?'on me':''}" onclick="XO.by='me';drawXO()">${esc(S.names.me)}</div>
+   <div class="sg ${XO.by==='you'?'on you':''}" onclick="XO.by='you';drawXO()">${esc(S.names.you)}</div>
+   <div class="sg ${XO.by==='our'?'on our':''}" onclick="XO.by='our';drawXO()">공용</div>
+ </div>
+ <div class="fl">공동 / 개인</div>
+ <div class="seg">
+   <div class="sg ${XO.scope==='all'?'on':''}" onclick="XO.scope='all';drawXO()">전체</div>
+   <div class="sg ${XO.scope==='our'?'on our':''}" onclick="XO.scope='our';drawXO()">공동</div>
+   <div class="sg ${XO.scope==='per'?'on':''}" onclick="XO.scope='per';drawXO()">개인</div>
+ </div>
+ <div class="fl">카테고리</div>
+ <div class="opts"><div class="opt sm ${!XO.cat?'on':''}" onclick="XO.cat='';drawXO()">전체</div>
+ ${S.cats.map(c=>`<div class="opt sm ${XO.cat===c.n?'on':''}" onclick="XO.cat='${esc(c.n)}';drawXO()">${c.e} ${esc(c.n)}</div>`).join('')}</div>
+ ${(S.tags||[]).length?`<div class="fl">태그</div>
+ <div class="opts"><div class="opt sm ${!XO.tag?'on':''}" onclick="XO.tag='';drawXO()">전체</div>
+ ${allTags('cnt').slice(0,14).map(t=>`<div class="opt sm ${XO.tag===t.id?'on':''}" style="${XO.tag===t.id?`background:${tagColor(t.id)};border-color:${tagColor(t.id)}`:''}" onclick="XO.tag='${t.id}';drawXO()">#${esc(t.n)}</div>`).join('')}</div>`:''}
+ <div class="fl">파일명</div>
+ <input class="in" placeholder="${esc(xoName())}" value="${esc(XO.name||'')}" oninput="XO.name=this.value">
+ <div style="font-size:11px;color:var(--sub);font-weight:600;margin:6px 2px 0">
+   대상 ${comma(xoRows().length)}건 · 시트 4개 (상세 · 월별요약 · 카테고리별 · 태그별)</div>
+ <div class="btns"><button class="btn g" onclick="close_()">취소</button>
+   <button class="btn p" onclick="xoGo()">엑셀 만들기</button></div>`);
+}
+function xoRange(r){
+ const n=new Date();
+ XO.range=r;
+ if(r==='year'){XO.from=key(new Date(n.getFullYear(),0,1));XO.to=key(new Date(n.getFullYear(),11,31))}
+ else if(r==='month'){XO.from=key(new Date(n.getFullYear(),n.getMonth(),1));XO.to=key(new Date(n.getFullYear(),n.getMonth()+1,0))}
+ else if(r==='last'){XO.from=key(new Date(n.getFullYear(),n.getMonth()-1,1));XO.to=key(new Date(n.getFullYear(),n.getMonth(),0))}
+ drawXO();
+}
+function xoRows(){
+ const out=[];
+ allExp((e,k)=>{
+  if(XO.range!=='all'&&(k<XO.from||k>XO.to))return;
+  if(XO.type!=='all'&&(e.t||'out')!==XO.type)return;
+  if(XO.by!=='all'&&e.by!==XO.by)return;
+  if(XO.scope!=='all'&&scopeOf(e)!==XO.scope)return;
+  if(XO.cat&&e.cat!==XO.cat)return;
+  if(XO.tag&&!(e.tags||[]).includes(XO.tag))return;
+  out.push({e,k});
+ });
+ out.sort((a,b)=>a.k.localeCompare(b.k));
+ return out;
+}
+function xoName(){
+ const tg=XO.tag?'_'+tagName(XO.tag):'';
+ const sc=XO.scope==='our'?'_공동':XO.scope==='per'?'_개인':'';
+ const by=XO.by!=='all'?'_'+byName(XO.by):'';
+ if(XO.range==='all')return `${S.names.me}_${S.names.you}_가계부_전체${by}${sc}${tg}.xlsx`;
+ return `가계부_${XO.from}_${XO.to}${by}${sc}${tg}.xlsx`;
+}
+function xoGo(){
+ loadXLSX(ok=>{
+  if(!ok)return xlFail();
+  const rows=xoRows();
+  if(!rows.length)return toast('조건에 맞는 내역이 없어요');
+  /* 시트1 상세 */
+  const d1=[XCOLS];
+  rows.forEach(({e,k})=>d1.push([k, e.t==='in'?'수입':'지출', e.name||'', e.a, e.cat, e.sub||'',
+    byName(e.by), scopeOf(e)==='our'?'공동':'개인', payLabel(e),
+    (e.place&&e.place.name)||'', (e.tags||[]).map(t=>'#'+tagName(t)).join(','), e.memo||'']));
+  const ws1=XLSX.utils.aoa_to_sheet(d1);
+  ws1['!cols']=[{wch:12},{wch:7},{wch:20},{wch:12},{wch:12},{wch:10},{wch:10},{wch:10},{wch:13},{wch:18},{wch:18},{wch:20}];
+  ws1['!autofilter']={ref:XLSX.utils.encode_range({s:{r:0,c:0},e:{r:d1.length-1,c:XCOLS.length-1}})};
+  ws1['!freeze']={xSplit:0,ySplit:1};
+  for(let r=1;r<d1.length;r++){const c=XLSX.utils.encode_cell({r,c:3});if(ws1[c])ws1[c].z='#,##0'}
+  /* 시트2 월별 */
+  const M={};
+  rows.forEach(({e,k})=>{const ym=k.slice(0,7); M[ym]=M[ym]||{inn:0,out:0,our:0,per:0};
+    if(e.t==='in')M[ym].inn+=e.a; else {M[ym].out+=e.a; if(scopeOf(e)==='our')M[ym].our+=e.a; else M[ym].per+=e.a}});
+  const d2=[['월','수입','지출','공동지출','개인지출','합계']];
+  Object.keys(M).sort().forEach(ym=>{const m=M[ym];d2.push([ym,m.inn,m.out,m.our,m.per,m.inn-m.out])});
+  const tt=Object.values(M).reduce((a,b)=>({inn:a.inn+b.inn,out:a.out+b.out,our:a.our+b.our,per:a.per+b.per}),{inn:0,out:0,our:0,per:0});
+  d2.push(['합계',tt.inn,tt.out,tt.our,tt.per,tt.inn-tt.out]);
+  const ws2=XLSX.utils.aoa_to_sheet(d2); ws2['!cols']=[{wch:10},{wch:14},{wch:14},{wch:14},{wch:14},{wch:14}];
+  /* 시트3 카테고리별 */
+  const C={};
+  rows.forEach(({e})=>{if(e.t==='in')return;C[e.cat]=(C[e.cat]||0)+e.a});
+  const ctot=Object.values(C).reduce((a,b)=>a+b,0)||1;
+  const d3=[['카테고리','금액','비율','건수']];
+  Object.keys(C).sort((a,b)=>C[b]-C[a]).forEach(c=>d3.push([c,C[c],Math.round(C[c]/ctot*1000)/10+'%',
+    rows.filter(r=>r.e.cat===c&&r.e.t!=='in').length]));
+  d3.push(['합계',ctot,'100%',rows.filter(r=>r.e.t!=='in').length]);
+  const ws3=XLSX.utils.aoa_to_sheet(d3); ws3['!cols']=[{wch:14},{wch:14},{wch:9},{wch:8}];
+  /* 시트4 태그별 */
+  const T={};
+  rows.forEach(({e})=>{(e.tags||[]).forEach(id=>{T[id]=T[id]||{a:0,n:0};if(e.t!=='in'){T[id].a+=e.a;T[id].n++}})});
+  const d4=[['태그','지출액','건수']];
+  Object.keys(T).sort((a,b)=>T[b].a-T[a].a).forEach(id=>d4.push(['#'+tagName(id),T[id].a,T[id].n]));
+  if(d4.length===1)d4.push(['(태그 없음)',0,0]);
+  const ws4=XLSX.utils.aoa_to_sheet(d4); ws4['!cols']=[{wch:18},{wch:14},{wch:8}];
+
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws1,'가계부 상세');
+  XLSX.utils.book_append_sheet(wb,ws2,'월별 요약');
+  XLSX.utils.book_append_sheet(wb,ws3,'카테고리별');
+  XLSX.utils.book_append_sheet(wb,ws4,'태그별');
+  let nm=(XO.name||'').trim()||xoName();
+  if(!/\.xlsx$/i.test(nm))nm+='.xlsx';
+  sheetToBlob(wb,nm);
+  close_(); toast(comma(rows.length)+'건을 저장했어요');
+ });
+}
+
 /* ================= 빠른 추가 ================= */
 function quickAdd(){
  sheet(`<h3>무엇을 기록할까요</h3>
@@ -3399,7 +4548,7 @@ const SIDE_EXTRA=[['body','인바디','<path d="M4 20V10M10 20V4M16 20v-7M22 20H
  ['noti','알림','<path d="M18 9a6 6 0 10-12 0c0 6-2 7-2 7h16s-2-1-2-7"/><path d="M10.5 20a2 2 0 003 0"/>']];
 const TITLE=()=>({
  home:['롴이복희 다이어리',`함께한 지 ${comma(sinceDays())}일`],
- cal:['롴이복희 다이어리',`함께한 지 ${comma(Math.floor((new Date()-parse(S.since))/86400000))}일`],
+ cal:['롴이복희 다이어리',`함께한 지 ${comma(sinceDays())}일`],
  day:(()=>{const d=parse(selDate);return [`${d.getMonth()+1}월 ${d.getDate()}일`,`${DOW[d.getDay()]}요일${selDate===key(new Date())?' · 오늘':''}`]})(),
  list:['롴이복희 기록',`${Object.keys(S.days).filter(hasAny).length}일 기록됨`],
  led:['가계부','나 · 짝꿍 · 공용'],
@@ -3413,7 +4562,9 @@ const TITLE=()=>({
  album:['추억 모아보기','월별 · 장소별 · 태그별'], stats:['OUR DATA','우리의 기록'],
  bucket:['버킷리스트','함께 이루고 싶은 것'],
  body:['인바디 기록','체중 · 골격근량 · 체지방량'], loc:['위치 공유','귀가 · 안심 알림'],
- alarm:['알림 설정','기기 알림 켜기']
+ alarm:['알림 설정','기기 알림 켜기'],
+ tags:['태그 관리','앱 전체를 잇는 태그'], xls:['가계부 엑셀','가져오기 · 내보내기'],
+ tag:[openTagId?'#'+tagName(openTagId):'태그','이 태그가 붙은 모든 기록']
 }[view]||['','']);
 
 const isWide=()=>window.innerWidth>=1000;
@@ -3452,7 +4603,7 @@ function render(){
  document.getElementById('tb').innerHTML=TABS.map(t2=>
   `<button class="${t2[0]===act?'on':''}" onclick="go('${t2[0]}')"><svg viewBox="0 0 24 24">${t2[2]}</svg><span>${t2[1]}</span></button>`).join('');
  document.getElementById('side').innerHTML=
-  `<div class="logo">롴이복희 다이어리<span>함께한 지 ${comma(Math.floor((new Date()-parse(S.since))/86400000))}일</span></div>`+
+  `<div class="logo">롴이복희 다이어리<span>함께한 지 ${comma(sinceDays())}일</span></div>`+
   TABS.map(t2=>`<button class="${t2[0]===act?'on':''}" onclick="go('${t2[0]}')"><svg viewBox="0 0 24 24">${t2[2]}</svg>${t2[1]}</button>`).join('')+
   SIDE_EXTRA.map(t2=>`<button class="${t2[0]===act?'on':''}" onclick="go('${t2[0]}')"><svg viewBox="0 0 24 24">${t2[2]}</svg>${t2[1]}</button>`).join('')+
   `<button onclick="q='';go('search')"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>검색</button>`+
@@ -3556,7 +4707,7 @@ function removeRecord(r){
  else if(r.kind==='places')d.places=[];
 }
 const SETKEYS=['names','since','checkItems','cats','incomeCats','pay','budget','favPlaces',
- 'events','anniv','tasks','shop','goals','memos','trips','fixed','bucket','body','loc','placeMeta','settle'];
+ 'events','anniv','tasks','shop','goals','memos','trips','fixed','bucket','body','loc','placeMeta','photoMeta','tags','tagStats','settle'];
 function pickSettings(){const o={};SETKEYS.forEach(k=>o[k]=S[k]);return o}
 function applySettings(o){if(!o)return;SETKEYS.forEach(k=>{if(o[k]!==undefined)S[k]=o[k]})}
 
