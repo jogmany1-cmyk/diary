@@ -460,7 +460,47 @@ function migrate(){
  if(S.v!==5){S.v=5;save();setTimeout(()=>{backfillFiles().catch(()=>{})},1200)}
 }
 let saveT=null;
-function save(){clearTimeout(saveT);saveT=setTimeout(()=>{try{recountTags()}catch(_){}try{DB.set('state',JSON.stringify(S))}catch(_){}},180);try{syncSoon()}catch(_){}}
+function save(){clearTimeout(saveT);saveT=setTimeout(()=>{flushSave()},180);try{syncSoon()}catch(_){}}
+/* 미룬 저장을 지금 바로 기록한다 (화면을 벗어나거나 앱이 내려갈 때) */
+function flushSave(){
+ clearTimeout(saveT); saveT=null;
+ try{recountTags()}catch(_){}
+ try{DB.set('state',JSON.stringify(S))}catch(_){}
+}
+/* 입력칸에 적힌 내용을 상태에 먼저 반영 */
+/* 입력칸이 속한 날짜/작성자에만 기록한다 (날짜를 옮겨도 섞이지 않음) */
+function setDiaryField(el,f){
+ if(!el)return;
+ const k=el.dataset.day||selDate, p=el.dataset.slot||S.profile;
+ const o=D(k); o.diary[p]=o.diary[p]||{};
+ if(o.diary[p][f]===el.value)return;
+ o.diary[p][f]=el.value; save();
+}
+function grabInputs(){
+ try{
+  const t=document.getElementById('dtx');
+  if(t&&t.dataset.day){
+   const o=D(t.dataset.day),p=t.dataset.slot||S.profile;
+   o.diary[p]=o.diary[p]||{};
+   if(o.diary[p].text!==t.value)o.diary[p].text=t.value;
+  }
+  const ti=document.getElementById('dtitle');
+  if(ti&&ti.dataset.day){
+   const o=D(ti.dataset.day),p=ti.dataset.slot||S.profile;
+   o.diary[p]=o.diary[p]||{};
+   if(o.diary[p].title!==ti.value)o.diary[p].title=ti.value;
+  }
+ }catch(_){}
+}
+function saveNow(){grabInputs();flushSave()}
+document.addEventListener('visibilitychange',()=>{if(document.hidden)saveNow()});
+window.addEventListener('pagehide',saveNow);
+window.addEventListener('beforeunload',saveNow);
+window.addEventListener('blur',saveNow);
+document.addEventListener('focusout',e=>{
+ const t=e&&e.target;
+ if(t&&(t.id==='dtx'||t.id==='dtitle'))saveNow();
+});
 
 /* 함께한 시작일 ↔ '함께한 날' 기념일 동기화 */
 function syncSinceAnniv(){
@@ -658,7 +698,7 @@ V.day=()=>{
    <div class="who"><span class="av" style="background:var(--${me})">${esc(S.names[me][0])}</span>${esc(S.names[me])}의 일기
      <span style="margin-left:auto;font-size:11px;color:var(--sub);font-weight:700">${dm.mood?dm.mood+' '+MOODN[dm.mood]:'기분 선택'}</span></div>
    <div class="moods">${MOOD.map(x=>`<div class="md ${dm.mood===x?'on':''}" onclick="setMood('${x}')">${x}</div>`).join('')}</div>
-   <textarea id="dtx" placeholder="오늘 어땠어요?" oninput="setText(this.value)">${esc(dm.text||'')}</textarea></div>
+   <textarea id="dtx" data-day="${k}" data-slot="${me}" placeholder="오늘 어땠어요?" oninput="setText(this.value)">${esc(dm.text||'')}</textarea></div>
  <div class="card">
    <div class="who"><span class="av" style="background:var(--${you})">${esc(S.names[you][0])}</span>${esc(S.names[you])}의 일기
      <span style="margin-left:auto;font-size:11px;color:var(--sub);font-weight:700">${dy.mood?dy.mood+' '+MOODN[dy.mood]:''}</span></div>
@@ -1752,9 +1792,14 @@ V.day=()=>{
    <div class="who"><span class="av" style="background:var(--${me})">${esc(S.names[me][0])}</span>${esc(S.names[me])}의 일기
      <span style="margin-left:auto;font-size:11px;color:var(--sub);font-weight:700">${dm.mood?dm.mood+' '+MOODN[dm.mood]:'기분 선택'}</span></div>
    <div class="moods">${MOOD.map(x=>`<div class="md ${dm.mood===x?'on':''}" onclick="setMood('${x}')">${x}</div>`).join('')}</div>
-   <input class="in" style="border:0;border-bottom:1.5px solid var(--line);border-radius:0;padding:6px 2px;font-size:14px;font-weight:800"
-     placeholder="제목 (선택)" value="${esc(dm.title||'')}" oninput="setTitle(this.value)">
-   <textarea id="dtx" placeholder="오늘 어땠어요?" oninput="setText(this.value)">${esc(dm.text||'')}</textarea>
+   <input class="in" id="dtitle" data-day="${k}" data-slot="${me}" style="border:0;border-bottom:1.5px solid var(--line);border-radius:0;padding:6px 2px;font-size:14px;font-weight:800"
+     placeholder="제목 (선택)" value="${esc(dm.title||'')}"
+     oninput="setDiaryField(this,'title')" onchange="setDiaryField(this,'title');saveNow()"
+     oncompositionend="setDiaryField(this,'title')" onblur="setDiaryField(this,'title');saveNow()">
+   <textarea id="dtx" data-day="${k}" data-slot="${me}" placeholder="오늘 어땠어요?"
+     oninput="setDiaryField(this,'text')" onchange="setDiaryField(this,'text');saveNow()"
+     oncompositionend="setDiaryField(this,'text')"
+     onblur="setDiaryField(this,'text');saveNow()">${esc(dm.text||'')}</textarea>
    <div style="border-top:1px dashed var(--line);padding-top:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
      <span style="font-size:11px;color:var(--sub);font-weight:800">태그</span>
      ${tagChips(dm.tags||[])}
@@ -5170,8 +5215,9 @@ const typing=()=>{const a=document.activeElement;
  return !!(a&&(a.tagName==='INPUT'||a.tagName==='TEXTAREA'||a.isContentEditable))};
 function safeRender(){ if(typing()){pendingRender=true;return} render() }
 document.addEventListener('focusout',()=>{setTimeout(()=>{if(pendingRender&&!typing()){pendingRender=false;render()}},250)});
-function go(v){view=v;render();document.getElementById('scr').scrollTop=0}
+function go(v){try{grabInputs()}catch(_){}view=v;render();document.getElementById('scr').scrollTop=0}
 function render(){
+ try{if(view==='day')grabInputs()}catch(_){}
  const wide=isWide();
  let html;
  if(wide&&view==='cal'){
