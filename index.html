@@ -5232,6 +5232,33 @@ function ledCal(y,m){
  return `<div class="ldow">${DOW.map(x=>`<span>${x}</span>`).join('')}</div><div class="lgrid">${g}</div>`;
 }
 
+/* ---- 공동지출 결제자별 (카테고리별 카드) ---- */
+function ourByLines(y,m){
+ if(ledWho!=='our')return '';
+ const r={me:0,you:0,our:0,none:0,cm:0,cy:0,co:0,cn:0,total:0};
+ monthExp(y,m,e=>{
+  if(!isOut(e))return;
+  if(scopeOf(e)!=='our')return;
+  const a=+e.a||0;
+  if(e.by==='me'){r.me+=a;r.cm++}
+  else if(e.by==='you'){r.you+=a;r.cy++}
+  else if(e.by==='our'){r.our+=a;r.co++}
+  else{r.none+=a;r.cn++}
+  r.total+=a;
+ });
+ if(!r.total)return '';
+ const ln=(w,ic,lb,v,c)=>!v?'':`<div class="prow"><span><i class="sw" style="background:${w?whoColor(w):'var(--sub)'}"></i>${ic} ${esc(lb)}</span>
+     <span>${comma(v)}원 · ${Math.round(v/r.total*100)}% · ${c}건</span></div>
+   <div class="bar"><i style="width:${v/r.total*100}%;background:${w?whoColor(w):'var(--sub)'}"></i></div>`;
+ return `<div style="border-top:1px dashed var(--line);margin-top:10px;padding-top:8px">
+   <div style="font-size:10.5px;color:var(--sub);font-weight:800">누가 결제했나</div>
+   ${ln('me','👩',whoLabel('me')+' 결제',r.me,r.cm)}
+   ${ln('you','👨',whoLabel('you')+' 결제',r.you,r.cy)}
+   ${ln('our','❤️','공용카드',r.our,r.co)}
+   ${ln(null,'❓','결제자 미지정',r.none,r.cn)}
+ </div>`;
+}
+
 /* ---- 가계부 메인 ---- */
 V.led=()=>{
  const y=cur.getFullYear(),m=cur.getMonth(),pre=new Date(y,m-1,1);
@@ -5319,6 +5346,7 @@ V.led=()=>{
        <div style="font-size:11px;color:var(--sub);font-weight:600;margin-top:3px">하루 평균 ${comma(Math.round(R.out/last))}원</div>
      </div>
    </div>
+   ${ourByLines(y,m)}
    ${cs.map((c,i)=>{const o2=catOf(c[0],'out');const open=ledOpen===c[0];
      const subs=Object.entries(R.bySub).filter(([k2])=>k2.split('||')[0]===c[0]).sort((a,b)=>b[1]-a[1]);
      return `<div class="cbar" onclick="ledOpen=${open?'null':`'${c[0]}'`};render()">
