@@ -208,6 +208,42 @@ textarea::placeholder{color:#CDB9C4}
 .plsel .t span{font-size:10.5px;color:var(--sub)}
 .plsel .x{color:#D9A8BE;font-size:17px;cursor:pointer;padding:0 4px}
 .exp .t span{display:block}
+.csug{margin:7px 2px 0;padding:9px 11px;border-radius:12px;background:rgba(167,139,250,.12);
+ font-size:11.5px;font-weight:800;color:#6E5C8A;line-height:1.6}
+.csug.ok{background:rgba(79,174,124,.13);color:#3C7A5A}
+.csug b{margin-left:7px;padding:3px 9px;border-radius:999px;background:#fff;color:#A78BFA;
+ font-size:11px;font-weight:900;cursor:pointer;display:inline-block}
+.csug.ok b{color:#4FAE7C}
+.csug span{display:block;font-size:10.5px;font-weight:700;opacity:.72;margin-top:3px}
+.trend i{cursor:pointer}
+.tlab{display:flex;gap:2px;margin-top:3px}
+.tlab span{flex:1;text-align:center;font-size:9px;font-weight:800;color:var(--sub)}
+.tlab span.on{color:var(--our)}
+.dhead{border-radius:18px;padding:20px 16px;text-align:center}
+.dbadge{display:inline-block;padding:4px 11px;border-radius:999px;color:#fff;font-size:10.5px;font-weight:800}
+.damt{font-size:30px;font-weight:900;letter-spacing:-1.2px;margin:7px 0 2px}
+.dsub{font-size:12.5px;font-weight:700;color:#7A6A72}
+.drow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 0;
+ border-bottom:1px dashed var(--line);font-size:12.5px;font-weight:600;color:var(--sub)}
+.drow:last-child{border-bottom:0}
+.drow b{color:var(--tx);font-weight:800;text-align:right;word-break:break-all}
+.whobar{display:flex;gap:6px;margin:0 0 10px}
+.wb{flex:1;text-align:center;padding:9px 4px;border-radius:12px;font-size:11.5px;font-weight:800;
+ background:rgba(255,255,255,.72);border:1.5px solid var(--line);color:var(--sub);cursor:pointer;
+ white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wb.on{background:linear-gradient(135deg,#F472B6,#A78BFA);border-color:transparent;color:#fff;box-shadow:0 3px 10px rgba(167,139,250,.28)}
+.ldow{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:4px}
+.ldow span{text-align:center;font-size:10px;font-weight:800;color:var(--sub);padding:3px 0}
+.lgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.lc0{min-height:52px}
+.lc1{min-height:52px;border-radius:10px;padding:4px 2px 3px;text-align:center;cursor:pointer;
+ background:rgba(255,255,255,.55);border:1.5px solid transparent;transition:.15s}
+.lc1.td{background:rgba(244,114,182,.13)}
+.lc1.on{border-color:#F472B6;background:rgba(244,114,182,.2)}
+.lc1 .dd{font-size:11px;font-weight:800;color:#6E5C66;line-height:1.3}
+.lc1 .mo{font-size:9.5px;font-weight:800;color:var(--warn);line-height:1.35;word-break:break-all}
+.lc1 .pl{font-size:9.5px;font-weight:800;color:var(--ok);line-height:1.35;word-break:break-all}
+.lc1 .trm{font-size:9.5px;line-height:1.35}
 .sw{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:6px;vertical-align:-1px}
 .cbar{cursor:pointer}
 .subs{margin:7px 0 2px;padding:9px 11px;background:rgba(255,255,255,.65);border-radius:12px}
@@ -392,13 +428,13 @@ const DEF={
  incomeCats:[{n:'급여',e:'💰'},{n:'금융소득',e:'🏦'},{n:'부수입',e:'💼'},{n:'환급·지원금',e:'🎟️'},{n:'기타소득',e:'📦'}],
  favPlaces:[],
  sync:null,
- budget:{monthly:0,cats:{},alertPct:80},
+ budget:{monthly:0,cats:{},alertPct:80,who:{our:0,me:0,you:0}},
  events:[], anniv:[], tasks:[], shop:[], goals:[], memos:[], trips:[], fixed:[], bucket:[], body:[],
  loc:{on:false,home:null,going:false,me:null,you:null,safeR:300}, notif:false,
- placeMeta:{}, photoMeta:{}, tags:[], tagStats:{}, files:{},
+ placeMeta:{}, photoMeta:{}, tags:[], tagStats:{}, catStats:{}, files:{},
  storage:{provider:'supabase',bucket:'photos',migrating:false},
  imgq:'std', gphotos:{clientId:''}, fileHash:{},
- settle:{me:50}, notiRead:[],
+ notiRead:[],
  kakaoKey:'50715f43acb2fcfc6566878f03bdf09f',
  v:2,
  days:{}
@@ -440,8 +476,6 @@ function migrate(){
  if(!S.placeMeta||typeof S.placeMeta!=='object')S.placeMeta={};
  if(!S.loc||typeof S.loc!=='object')S.loc=defLoc();
  if(S.loc.safeR==null)S.loc.safeR=300;
- if(!S.settle||typeof S.settle!=='object')S.settle={me:50};
- if(S.settle.me==null)S.settle.me=50;
  if(!S.budget.cats)S.budget.cats={};
  if(!S.budget.alertPct)S.budget.alertPct=80;
  Object.values(S.days).forEach(d=>{(d.exp||[]).forEach(e=>{
@@ -535,15 +569,16 @@ const comma=n=>Number(n||0).toLocaleString('ko-KR');
 function D(k){if(!S.days[k])S.days[k]={wx:null,diary:{},photos:[],exp:[],chk:{me:{},you:{}},places:[]};
  const d=S.days[k];d.diary=d.diary||{};d.photos=d.photos||[];d.exp=d.exp||[];
  d.chk=d.chk||{me:{},you:{}};d.chk.me=d.chk.me||{};d.chk.you=d.chk.you||{};d.places=d.places||[];return d}
-function daySum(k){const d=S.days[k];return d?d.exp.reduce((a,b)=>a+(b.t==='in'?0:b.a),0):0}
+function daySum(k){const d=S.days[k];return d?d.exp.reduce((a,b)=>a+((b.t==='in'||b.t==='tr')?0:b.a),0):0}
 function hasAny(k){const d=S.days[k];if(!d)return false;
  return !!(d.wx||d.photos.length||d.exp.length||Object.values(d.diary).some(v=>v&&v.text)||
   Object.values(d.chk.me).some(Boolean)||Object.values(d.chk.you).some(Boolean)||d.places.length)}
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),1600)}
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const OTHER=p=>p==='me'?'you':'me';
-const catsFor=t=>t==='in'?S.incomeCats:S.cats;
-const catOf=(n,t)=>{const L=catsFor(t);return L.find(c=>c.n===n)||(t==='in'?{n:n||'기타소득',e:'💰',subs:[]}:S.cats[S.cats.length-1])};
+const TRCATS=[{n:'계좌이체',e:'🔁',subs:[]},{n:'카드대금',e:'💳',subs:[]},{n:'저축·투자',e:'🏦',subs:[]},{n:'현금인출',e:'🏧',subs:[]},{n:'대출상환',e:'📄',subs:[]}];
+const catsFor=t=>t==='in'?S.incomeCats:t==='tr'?TRCATS:S.cats;
+const catOf=(n,t)=>{const L=catsFor(t);return L.find(c=>c.n===n)||(t==='in'?{n:n||'기타소득',e:'💰',subs:[]}:t==='tr'?{n:n||'계좌이체',e:'🔁',subs:[]}:S.cats[S.cats.length-1])};
 const byName=b=>b==='our'?'공용':S.names[b];
 function payLabel(e){
  const p=e.pay||{type:'cash',issuer:''};
@@ -561,7 +596,7 @@ function placeAgg(){
  allExp((e,k)=>{ if(!e.place||!e.place.name)return;
   const id=e.place.pid||e.place.name;
   if(!m[id])m[id]={...e.place,cnt:0,sum:0,last:k};
-  m[id].cnt++; if(e.t!=='in')m[id].sum+=e.a;
+  m[id].cnt++; if(e.t!=='in'&&e.t!=='tr')m[id].sum+=e.a;
   if(k>m[id].last)m[id].last=k;
  });
  return Object.values(m).sort((a,b)=>b.sum-a.sum);
@@ -636,7 +671,7 @@ function diagBox(){
 let view='home', cur=new Date(), selDate=key(new Date()), q='', filt='all', ledOpen=null, mapFilt='all', catTab='out';
 const PARENT={day:'cal',search:'home',set:'more',cards:'set',cats:'set',favs:'set',sync:'set',
  noti:'more',anniv:'more',life:'more',goals:'more',trip:'more',budget:'more',fixed:'more',
- settle:'more',list:'more',album:'more',stats:'more',bucket:'more',xls:'more',storage:'more',body:'more',loc:'more',alarm:'more',tags:'more',tag:'tags',gset:'more'};
+ lfind:'led',list:'more',album:'more',stats:'more',bucket:'more',xls:'more',storage:'more',body:'more',loc:'more',alarm:'more',tags:'more',tag:'tags',gset:'more'};
 
 /* ================= 화면 ================= */
 const V={};
@@ -685,7 +720,7 @@ function todayCard(k){
 V.day=()=>{
  const k=selDate,o=D(k),me=S.profile,you=OTHER(me);
  const dm=o.diary[me]||{},dy=o.diary[you]||{};
- const tot=o.exp.reduce((a,b)=>a+(b.t==='in'?-b.a:b.a),0);
+ const tot=o.exp.reduce((a,b)=>a+(b.t==='tr'?0:b.t==='in'?-b.a:b.a),0);
  return `
  <div class="card"><div style="font-size:11.5px;color:var(--sub);font-weight:800;margin-bottom:8px">오늘 날씨</div>
    <div class="wxrow">${WX.map(w=>`<div class="wx1 ${o.wx===w?'on':''}" onclick="setWx('${w}')">${w}</div>`).join('')}</div></div>
@@ -752,7 +787,7 @@ function expRow(e,k){
   <div class="t"><b>${esc(e.name||e.cat)}</b>
     <span>${esc(e.cat)}${e.sub?' › '+esc(e.sub):''} · ${payIcon(e.pay.type)}${esc(payLabel(e))} · ${esc(byName(e.by))}</span>
     ${e.place&&e.place.name?`<span style="color:#C58AA6">📍 ${esc(e.place.name)}</span>`:''}</div>
-  <div class="a" style="color:${e.t==='in'?'var(--ok)':'var(--warn)'}">${e.t==='in'?'+':'-'}${comma(e.a)}</div>
+  <div class="a" style="color:${e.t==='in'?'var(--ok)':e.t==='tr'?'#7FC7E8':'var(--warn)'}">${e.t==='in'?'+':e.t==='tr'?'':'-'}${comma(e.a)}</div>
   <div class="x" onclick="event.stopPropagation();delExp('${e.id}','${k}')">×</div></div>`;
 }
 
@@ -787,8 +822,9 @@ V.led=()=>{
  const inP=k=>{const d=parse(k);return d.getFullYear()===pre.getFullYear()&&d.getMonth()===pre.getMonth()};
  let out=0,inc=0,prev=0,byCat={},bySub={},byWho={me:0,you:0,our:0},byPay={},byDay={},cnt=0;
  allExp((e,k)=>{
-  if(inP(k)&&e.t!=='in')prev+=e.a;
+  if(inP(k)&&e.t!=='in'&&e.t!=='tr')prev+=e.a;
   if(!inM(k))return;
+  if(e.t==='tr')return;
   if(e.t==='in'){inc+=e.a;return}
   out+=e.a;cnt++;
   byCat[e.cat]=(byCat[e.cat]||0)+e.a;
@@ -937,7 +973,7 @@ function placeDetail(id){
  allExp((e,k)=>{if(e.place&&(e.place.pid||e.place.name)===id)rows.push({e,k})});
  rows.sort((a,b)=>b.k.localeCompare(a.k));
  if(!rows.length)return;
- const p=rows[0].e.place, sum=rows.filter(r=>r.e.t!=='in').reduce((a,b)=>a+b.e.a,0);
+ const p=rows[0].e.place, sum=rows.filter(r=>r.e.t!=='in'&&r.e.t!=='tr').reduce((a,b)=>a+b.e.a,0);
  sheet(`<h3>${esc(p.name)}</h3>
   <div style="text-align:center;font-size:11.5px;color:var(--sub);font-weight:600;margin:-8px 0 14px">${esc(p.address||'')}</div>
   <div class="bs"><div class="b"><span>방문</span><b>${rows.length}회</b></div>
@@ -1264,9 +1300,9 @@ function addSub(i){
 let EX=null, EXid=null, EXkey=null;
 function newEX(){return {id:uid(),date:EXkey,t:'out',a:0,cat:S.cats[0].n,sub:'',icon:S.cats[0].e,
  by:S.profile,pay:{type:'card',issuer:S.pay.card[0]||''},place:null,name:'',at:Date.now()}}
-function expSheet(id,k){
+function expSheet(id,k){ /* 수정은 자동분류 끔 */
  EXkey=k||selDate; EXid=id||null;
- if(id){const f=(D(EXkey).exp||[]).find(x=>x.id===id);EX=f?JSON.parse(JSON.stringify(f)):newEX()}
+ if(id){const f=(D(EXkey).exp||[]).find(x=>x.id===id);EX=f?JSON.parse(JSON.stringify(f)):newEX();EX._touched=true;EX._auto=false}
  else EX=newEX();
  EX.date=EX.date||EXkey;
  drawEX();
@@ -1275,15 +1311,17 @@ function fixCat(){const L=catsFor(EX.t);
  if(!L.some(x=>x.n===EX.cat)){EX.cat=L[0].n;EX.icon=L[0].e;EX.sub=''}}
 function drawEX(){
  fixCat();
- const inc=EX.t==='in';
+ const inc=EX.t==='in', trf=EX.t==='tr';
  const CL=catsFor(EX.t), c=catOf(EX.cat,EX.t), subs=(c.subs||[]);
  const issuers=EX.pay.type==='card'?S.pay.card:EX.pay.type==='point'?S.pay.point:[];
  const isFav=EX.place&&S.favPlaces.some(p=>p.name===EX.place.name);
- sheet(`<h3>${EXid?(inc?'수입 수정':'지출 수정'):'지출 · 수입 입력'}</h3>
+ sheet(`<h3>${EXid?(inc?'수입 수정':trf?'이체 수정':'지출 수정'):'지출 · 수입 · 이체 입력'}</h3>
   <div class="seg">
-    <div class="sg ${!inc?'on':''}" onclick="EX.t='out';drawEX()">지출</div>
+    <div class="sg ${EX.t==='out'?'on':''}" onclick="EX.t='out';drawEX()">지출</div>
     <div class="sg ${inc?'on':''}" onclick="EX.t='in';drawEX()">수입</div>
+    <div class="sg ${trf?'on':''}" onclick="EX.t='tr';drawEX()">🔁 이체</div>
   </div>
+  ${trf?`<div style="font-size:11px;color:var(--sub);font-weight:700;margin:8px 2px 0;line-height:1.7">내 계좌·카드 사이의 돈 이동입니다. 지출·수입·예산·소비분석 어디에도 잡히지 않아요.</div>`:''}
   <div class="fl">날짜</div>
   <div style="display:flex;gap:7px">
     <input class="in" type="date" style="flex:1" value="${EX.date}" onchange="EX.date=this.value||EX.date;drawEX()">
@@ -1294,13 +1332,13 @@ function drawEX(){
   <input class="in amt" id="eA" inputmode="numeric" placeholder="0" value="${EX.a?comma(EX.a):''}" oninput="fmtA(this)">
   <div class="pads">${[1000,5000,10000,30000,50000,'C'].map(v=>`<button onclick="padA('${v}')">${v==='C'?'지우기':'+'+won(v)}</button>`).join('')}</div>
 
-  <div class="fl">${inc?'수입 분류':'카테고리'}</div>
+  <div class="fl">${inc?'수입 분류':trf?'이체 유형':'카테고리'}</div>
   <div class="opts">${CL.map((x,i2)=>`<div class="opt ${x.n===EX.cat?'on':''}" onclick="pickCat(${i2})">${x.e} ${esc(x.n)}</div>`).join('')}
-    <div class="opt sm" style="border-style:dashed" onclick="catTab='${inc?'in':'out'}';go('cats');close_()">＋ 편집</div></div>
+    ${trf?'':`<div class="opt sm" style="border-style:dashed" onclick="catTab='${inc?'in':'out'}';go('cats');close_()">＋ 편집</div>`}</div>
   ${subs.length?`<div class="opts" style="margin-top:7px">
     ${subs.map((sb,k2)=>`<div class="opt sm ${EX.sub===sb?'on':''}" onclick="pickSub(${k2})">${esc(sb)}</div>`).join('')}</div>`:''}
 
-  ${inc?'':`<div class="fl">결제수단</div>
+  ${(inc||trf)?'':`<div class="fl">결제수단</div>
   <div class="seg">${PAYT.map(p=>`<div class="sg ${EX.pay.type===p[0]?'on':''}" onclick="pickPay('${p[0]}')">${p[2]} ${p[1]}</div>`).join('')}</div>
   ${issuers.length?`<div class="opts" style="margin-top:8px">
     ${issuers.map(x=>`<div class="opt sm ${EX.pay.issuer===x?'on':''}" onclick="pickIssuer('${esc(x)}')">${esc(x)}</div>`).join('')}
@@ -1308,14 +1346,14 @@ function drawEX(){
    :(EX.pay.type==='cash'?`<div class="opts" style="margin-top:8px">
     ${['','계좌이체'].map(x=>`<div class="opt sm ${EX.pay.issuer===x?'on':''}" onclick="pickIssuer('${x}')">${x||'현금'}</div>`).join('')}</div>`:'')}`}
 
-  <div class="fl">${inc?'누가 받았나요':'누가 결제했나요'}</div>
+  <div class="fl">${inc?'누가 받았나요':trf?'누구 계좌인가요':'누가 결제했나요'}</div>
   <div class="seg">
     <div class="sg ${EX.by==='me'?'on me':''}" onclick="EX.by='me';drawEX()">${esc(S.names.me)}</div>
     <div class="sg ${EX.by==='you'?'on you':''}" onclick="EX.by='you';drawEX()">${esc(S.names.you)}</div>
     <div class="sg ${EX.by==='our'?'on our':''}" onclick="EX.by='our';drawEX()">공용</div>
   </div>
 
-  <div class="fl">${inc?'어디서 받았나요 (선택)':'어디서 썼나요'}</div>
+  <div class="fl">${inc?'어디서 받았나요 (선택)':trf?'메모할 곳 (선택)':'어디서 썼나요'}</div>
   ${EX.place?`<div class="plsel"><div class="ic">📍</div>
      <div class="t"><b>${esc(EX.place.name)}</b><span>${esc(EX.place.address||'좌표 없음')}</span></div>
      <div class="x" style="color:${isFav?'#F0A828':'#D9C0CB'};font-size:19px" onclick="toggleFav()">${isFav?'★':'☆'}</div>
@@ -1325,7 +1363,8 @@ function drawEX(){
     ${S.favPlaces.slice(0,6).map((p,i3)=>`<div class="opt sm" onclick="useFav(${i3})">⭐ ${esc(p.name)}</div>`).join('')}</div>`:''}
 
   <div class="fl">내용</div>
-  <input class="in" id="eN" placeholder="${inc?'예: 8월 급여':'예: 저녁 칼국수'}" value="${esc(EX.name)}" oninput="EX.name=this.value" onchange="sugDraw()">
+  <input class="in" id="eN" placeholder="${inc?'예: 8월 급여':trf?'예: 국민 → 카카오뱅크':'예: 저녁 칼국수'}" value="${esc(EX.name)}" oninput="exName(this.value)" onchange="sugDraw()">
+  <div id="csugrow">${catSugRow()}</div>
 
   <div class="btns">
    ${EXid?`<button class="btn g" onclick="delExp('${EXid}','${EXkey}');close_()">삭제</button>`:`<button class="btn g" onclick="close_()">취소</button>`}
@@ -1338,9 +1377,10 @@ function dateLabel(k){const d=parse(k),t=key(new Date());
  const w=DOW[d.getDay()]+'요일';
  return `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 ${w}`+(diff===0?' · 오늘':diff===1?' · 어제':diff>1?` · ${diff}일 전`:diff<0?` · ${-diff}일 뒤`:'');
 }
-function pickSub(k2){const subs=catOf(EX.cat,EX.t).subs||[];EX.sub=(EX.sub===subs[k2]?'':subs[k2]);drawEX()}
+function pickSub(k2){const subs=catOf(EX.cat,EX.t).subs||[];EX.sub=(EX.sub===subs[k2]?'':subs[k2]);EX._touched=true;
+ if(document.getElementById('catbox'))catRedraw(); else drawEX()}
 function pickIssuer(v){EX.pay.issuer=v;drawEX()}
-function useFav(i){EX.place=JSON.parse(JSON.stringify(S.favPlaces[i]));drawEX()}
+function useFav(i){EX.place=JSON.parse(JSON.stringify(S.favPlaces[i]));try{autoCat()}catch(_){}drawEX()}
 function toggleFav(){
  if(!EX.place)return;
  const i=S.favPlaces.findIndex(p=>p.name===EX.place.name);
@@ -1348,7 +1388,8 @@ function toggleFav(){
  else{S.favPlaces.push(JSON.parse(JSON.stringify(EX.place)));toast('즐겨찾기에 담았어요')}
  save();drawEX();
 }
-function pickCat(i){const L=catsFor(EX.t);EX.cat=L[i].n;EX.icon=L[i].e;EX.sub='';drawEX()}
+function pickCat(i){const L=catsFor(EX.t);EX.cat=L[i].n;EX.icon=L[i].e;EX.sub='';EX._touched=true;EX._auto=false;
+ if(document.getElementById('catbox'))catRedraw(); else drawEX()}
 function pickPay(t){EX.pay.type=t;
  EX.pay.issuer = t==='card'?(S.pay.card[0]||''): t==='point'?(S.pay.point[0]||''):'';
  drawEX()}
@@ -1357,8 +1398,10 @@ function padA(v){if(v==='C')EX.a=0;else EX.a+=+v;const el=document.getElementByI
 function saveExp(){
  if(!EX.a)return toast('금액을 입력해주세요');
  tagBump(EX.tags); try{learnTags(exCtx(),EX.tags)}catch(_){}
+ try{if(isOut(EX))learnCat({text:EX.name,place:EX.place,pay:EX.pay},EX.cat,EX.sub)}catch(_){}
  const nk=EX.date||EXkey;
  if(EXid){const o0=D(EXkey);o0.exp=o0.exp.filter(x=>x.id!==EXid)}
+ delete EX._touched; delete EX._auto; delete EX._auto0;
  const o=D(nk);
  o.exp.push(EX);
  if(EX.place&&EX.place.name&&!o.places.some(p=>(p.n||p.name)===EX.place.name))
@@ -1392,7 +1435,7 @@ function placeSheet(){
  setTimeout(()=>{const el=document.getElementById('pq');if(el)el.focus()},130);
  if(S.kakaoKey)loadKakao(()=>{});
 }
-function useRecent(i){EX.place=window.__rec[i];drawEX()}
+function useRecent(i){EX.place=window.__rec[i];try{autoCat()}catch(_){}drawEX()}
 function manualPlace(){
  const n=document.getElementById('pmn').value.trim();
  if(!n)return toast('장소 이름을 입력해주세요');
@@ -1484,7 +1527,7 @@ const EVCATS=[['커플','#F472B6','💕'],['개인','#5B8DEF','🙋'],['가족',
  ['기념일','#F0C36B','🎉'],['납부일','#C9A6E9','🧾'],['집안일','#9AB8D8','🧹'],['기타','#B8A6AE','📌']];
 const evCat=n=>EVCATS.find(c=>c[0]===n)||EVCATS[10];
 const evColor=e=>evCat(e.cat)[1];
-const REPS=[['none','반복 없음'],['day','매일'],['week','매주'],['biweek','격주'],['month','매월'],['year','매년']];
+const REPS=[['none','반복 없음'],['day','매일'],['week','매주'],['biweek','격주'],['month','매월'],['year','매년'],['custom','사용자 지정']];
 const ALARMS=[[0,'정시'],[10,'10분 전'],[30,'30분 전'],[60,'1시간 전'],[1440,'하루 전'],[4320,'3일 전']];
 
 function evOccurs(ev,k){
@@ -1551,19 +1594,9 @@ function monthExp(y,m,fn){
  allExp((e,k)=>{const d=parse(k);if(d.getFullYear()===y&&d.getMonth()===m)fn(e,k)});
 }
 function monthOut(y,m,cat){
- let s=0;monthExp(y,m,e=>{if(e.t==='in')return;if(cat&&e.cat!==cat)return;s+=e.a});return s;
+ let s=0;monthExp(y,m,e=>{if(e.t==='in'||e.t==='tr')return;if(cat&&e.cat!==cat)return;s+=e.a});return s;
 }
 function scopeOf(e){return e.sc||(e.by==='our'?'our':'per')}
-function settleMonth(y,m){
- let tot=0,paid={me:0,you:0};
- monthExp(y,m,e=>{if(e.t==='in'||scopeOf(e)!=='our')return;
-  tot+=e.a;
-  const w=(e.by==='you')?'you':'me';
-  paid[w]+=e.a;});
- const rm=(S.settle&&S.settle.me!=null?S.settle.me:50)/100;
- const shouldMe=Math.round(tot*rm),shouldYou=tot-shouldMe;
- return {tot,paid,shouldMe,shouldYou,diff:Math.round(paid.me-shouldMe)};
-}
 function budgetState(y,m){
  const b=S.budget||{};
  const out=monthOut(y,m);
@@ -1582,7 +1615,7 @@ function notiList(){
   out.push({ic:a.icon,tt:a.left===0?'오늘이에요':`D-${a.left}`,s:a.title,go:"go('anniv')",k:'an'+a.key}));
  for(let i=0;i<=3;i++)fixedOn(addD(t,i)).forEach(f=>
   out.push({ic:'🧾',tt:i===0?'오늘 결제일':`${i}일 뒤 결제`,s:`${f.title} ${comma(f.amount)}원`,go:"go('fixed')",k:'fx'+f.id+addD(t,i)}));
- const b=budgetState(now.getFullYear(),now.getMonth());
+ const b=budgetState(now.getFullYear(),now.getMonth(),'all');
  if(b.total){
   const p=Math.round(b.pct);
   if(p>=100)out.push({ic:'🚨',tt:'예산 초과',s:`이번 달 예산을 ${comma(b.out-b.total)}원 넘었어요`,go:"go('budget')",k:'bd100'+mk(now.getFullYear(),now.getMonth())});
@@ -1598,8 +1631,6 @@ function notiList(){
   out.push({ic:'🎯',tt:`목표 D-${dayDiff(t,g.due)}`,s:`${g.title} ${goalPct(g)}%`,go:"go('goals')",k:'gl'+g.id}));
  (S.bucket||[]).filter(b=>!b.done&&b.due&&dayDiff(t,b.due)>=0&&dayDiff(t,b.due)<=30).forEach(b=>
   out.push({ic:'🪣',tt:`버킷 D-${dayDiff(t,b.due)}`,s:b.title,go:"go('bucket')",k:'bk'+b.id}));
- const st=settleMonth(now.getFullYear(),now.getMonth());
- if(Math.abs(st.diff)>=1000)out.push({ic:'⚖️',tt:'정산',s:st.diff>0?`${S.names.you}님이 ${comma(Math.abs(st.diff))}원 보낼 차례`:`${S.names.me}님이 ${comma(Math.abs(st.diff))}원 보낼 차례`,go:"go('settle')",k:'st'+mk(now.getFullYear(),now.getMonth())});
  return out;
 }
 const notiNew=()=>notiList().filter(n=>!S.notiRead.includes(n.k)).length;
@@ -1612,7 +1643,7 @@ function goalPct(g){const t=+g.target||0;return t?Math.min(999,Math.round(goalCu
 V.home=()=>{
  const t=today(),now=new Date(),y=now.getFullYear(),m=now.getMonth();
  const ev=eventsOn(t), an=annivList().slice(0,3);
- const b=budgetState(y,m);
+ const b=budgetState(y,m,'all');
  const rec=Object.keys(S.days).filter(hasAny).sort().reverse()[0];
  const rp=recentPlaces(1)[0];
  const tk=S.tasks.filter(x=>!x.done&&(!x.due||x.due<=t));
@@ -1665,8 +1696,6 @@ V.home=()=>{
    ${b.total?`<div class="pg"><i class="${b.pct>100?'warn':''}" style="width:${Math.min(100,b.pct)}%"></i></div>
      <div class="cmp">예산 ${comma(b.total)}원 · ${b.pct>100?`<b style="color:var(--warn)">${comma(b.out-b.total)}원 초과</b>`:`남은 ${comma(b.left)}원`}</div>`
    :`<div class="cmp">예산을 정하면 남은 금액을 알려드려요 <span class="more" onclick="go('budget')">예산 설정 ›</span></div>`}
-   ${(()=>{const st=settleMonth(y,m);return st.tot?`<div class="prow" style="margin-top:12px"><span>공동지출 정산</span>
-     <span style="color:var(--our)">${st.diff===0?'정산 완료':(st.diff>0?`${esc(S.names.you)} → ${esc(S.names.me)} ${comma(Math.abs(st.diff))}원`:`${esc(S.names.me)} → ${esc(S.names.you)} ${comma(Math.abs(st.diff))}원`)}</span></div>`:''})()}
  </div>
 
  <div class="sec">우리 기록</div>
@@ -1759,7 +1788,7 @@ V.cal=()=>{
 V.day=()=>{
  const k=selDate,o=D(k),me=S.profile,you=OTHER(me);
  const dm=o.diary[me]||{},dy=o.diary[you]||{};
- const tot=o.exp.reduce((a,b)=>a+(b.t==='in'?-b.a:b.a),0);
+ const tot=o.exp.reduce((a,b)=>a+(b.t==='tr'?0:b.t==='in'?-b.a:b.a),0);
  const ev=eventsOn(k),fx=fixedOn(k),an=annivOn(k);
  const tk=S.tasks.filter(x=>x.due===k);
  return `
@@ -1770,7 +1799,7 @@ V.day=()=>{
  <div class="card">
    ${ev.length?ev.map(e=>`<div class="row" style="cursor:pointer" onclick="evSheet('${e.id}')">
      <div class="evd" style="background:${evColor(e)}"></div>
-     <div class="t"><b>${esc(e.title)}</b><span>${e.time?e.time+' · ':''}${esc(e.cat||'기타')}${e.rep&&e.rep!=='none'?' · 반복':''}${e.place?' · 📍'+esc(e.place.name||e.place):''}</span>
+     <div class="t"><b>${esc(e.title)}</b><span>${e.time?e.time+' · ':''}${esc(e.cat||'기타')}${e.rep&&e.rep!=='none'?' · 🔁'+repLabel(e):''}${e.place?' · 📍'+esc(e.place.name||e.place):''}</span>
        ${e.memo?`<span>${esc(e.memo)}</span>`:''}
        ${(e.tags||[]).length?`<span class="tgrow">${tagChips(e.tags)}</span>`:''}</div>
      <div class="r">${esc(e.who==='our'?'같이':S.names[e.who]||'')}</div></div>`).join('')
@@ -1849,14 +1878,14 @@ function expRow(e,k){
     <span style="color:${sc==='our'?'var(--our)':'var(--sub)'}">${sc==='our'?'공동지출':'개인지출'}</span>
     ${(e.tags||[]).length?`<span class="tgrow">${tagChips(e.tags)}</span>`:''}
     ${e.place&&e.place.name?`<span style="color:#C58AA6">📍 ${esc(e.place.name)}</span>`:''}</div>
-  <div class="a" style="color:${e.t==='in'?'var(--ok)':'var(--warn)'}">${e.t==='in'?'+':'-'}${comma(e.a)}</div>
+  <div class="a" style="color:${e.t==='in'?'var(--ok)':e.t==='tr'?'#7FC7E8':'var(--warn)'}">${e.t==='in'?'+':e.t==='tr'?'':'-'}${comma(e.a)}</div>
   <div class="x" onclick="event.stopPropagation();delExp('${e.id}','${k}')">×</div></div>`;
 }
 
 /* ================= 일정 입력 시트 ================= */
 let EV=null,EVid=null;
 function newEV(k){return {id:uid(),title:'',date:k||selDate||today(),time:'',cat:'커플',who:'our',
- place:null,memo:'',rep:'none',until:'',alarm:[],tripId:'',done:false}}
+ place:null,memo:'',rep:'none',every:1,unit:'day',until:'',alarm:[],tripId:'',done:false}}
 function evSheet(id,k){
  EVid=id||null;
  if(id){const f=S.events.find(x=>x.id===id);EV=f?JSON.parse(JSON.stringify(f)):newEV(k)}
@@ -1881,8 +1910,7 @@ function drawEV(){
    <div class="sg ${EV.who==='you'?'on you':''}" onclick="EV.who='you';drawEV()">${esc(S.names.you)}</div>
    <div class="sg ${EV.who==='our'?'on our':''}" onclick="EV.who='our';drawEV()">같이</div>
  </div>
- <div class="fl">반복</div>
- <div class="opts">${REPS.map(r=>`<div class="opt sm ${EV.rep===r[0]?'on':''}" onclick="EV.rep='${r[0]}';drawEV()">${r[1]}</div>`).join('')}</div>
+ ${repBox('EV',EV)}
  ${EV.rep!=='none'?`<div class="fl">반복 종료일 (비우면 계속)</div>
  <input class="in" type="date" value="${EV.until||''}" onchange="EV.until=this.value">`:''}
  <div class="fl">알림</div>
@@ -1983,7 +2011,7 @@ function anDel(){S.anniv=S.anniv.filter(x=>x.id!==ANid);save();close_();render()
 /* ================= 예산 ================= */
 V.budget=()=>{
  const now=new Date(),y=cur.getFullYear(),m=cur.getMonth();
- const b=budgetState(y,m);
+ const b=budgetState(y,m,'all');
  return `<div class="mrow"><div class="m" style="font-size:16px">${y}년 ${m+1}월 예산</div>
    <div class="nav"><button onclick="mv(-1)">‹</button><button onclick="mv(1)">›</button></div></div>
  <div class="card">
@@ -2104,56 +2132,6 @@ function fixToExp(id,k){
  save();render();toast('가계부에 등록했어요');
 }
 
-/* ================= 정산 ================= */
-V.settle=()=>{
- const y=cur.getFullYear(),m=cur.getMonth();
- const st=settleMonth(y,m);
- const rm=S.settle.me!=null?S.settle.me:50;
- const rows=[];
- monthExp(y,m,(e,k)=>{if(e.t==='in'||scopeOf(e)!=='our')return;rows.push({e,k})});
- rows.sort((a,b)=>b.k.localeCompare(a.k));
- return `<div class="mrow"><div class="m" style="font-size:16px">${y}년 ${m+1}월 정산</div>
-   <div class="nav"><button onclick="mv(-1)">‹</button><button onclick="mv(1)">›</button></div></div>
- <div class="bs">
-   <div class="b"><span>공동지출</span><b>${won(st.tot)}</b></div>
-   <div class="b"><span>${esc(S.names.me)} 결제</span><b style="color:var(--me)">${won(st.paid.me)}</b></div>
-   <div class="b"><span>${esc(S.names.you)} 결제</span><b style="color:var(--you)">${won(st.paid.you)}</b></div>
- </div>
- <div class="card" style="text-align:center;padding:20px 14px;background:linear-gradient(135deg,rgba(236,229,255,.85),rgba(255,231,241,.85))">
-   ${st.tot? (Math.abs(st.diff)<1000?`<div style="font-size:15px;font-weight:900">정산 완료 🎉</div>
-     <div style="font-size:11.5px;color:#9A6A80;margin-top:6px;font-weight:700">서로 낼 만큼 냈어요</div>`
-   :`<div style="font-size:11.5px;color:#9A6A80;font-weight:800">${st.diff>0?esc(S.names.you):esc(S.names.me)} → ${st.diff>0?esc(S.names.me):esc(S.names.you)}</div>
-     <div style="font-size:30px;font-weight:900;letter-spacing:-1px;margin:4px 0">${comma(Math.abs(st.diff))}원</div>
-     <div style="font-size:11.5px;color:#9A6A80;font-weight:700">부담비율 ${rm} : ${100-rm} 기준</div>`)
-   :`<div style="font-size:13px;color:#9A6A80;font-weight:700">이번 달 공동지출이 없어요</div>`}
- </div>
- <div class="sec">부담비율</div>
- <div class="card">
-   <div class="prow"><span>${esc(S.names.me)} ${rm}%</span><span>${esc(S.names.you)} ${100-rm}%</span></div>
-   <input type="range" min="0" max="100" step="5" value="${rm}" style="width:100%;margin-top:8px"
-     oninput="S.settle.me=+this.value;save()" onchange="render()">
-   <div class="opts" style="margin-top:8px">${[50,60,40,70,30].map(p=>
-     `<div class="opt sm ${rm===p?'on':''}" onclick="S.settle.me=${p};save();render()">${p}:${100-p}</div>`).join('')}</div>
-   <div class="cmp">내야 할 몫 · ${esc(S.names.me)} ${comma(st.shouldMe)}원 / ${esc(S.names.you)} ${comma(st.shouldYou)}원</div>
- </div>
- <div class="sec">일괄 지정</div>
- <div class="card">
-   <div class="cmp" style="margin-top:0">이전 버전에서 입력한 지출은 모두 개인지출로 들어가 있어요. 이번 달 기록을 한 번에 바꿀 수 있습니다.</div>
-   <div style="display:flex;gap:7px;margin-top:10px">
-     <button class="btn g" style="padding:12px;font-size:12.5px" onclick="bulkScope('our')">이번 달 전부 공동으로</button>
-     <button class="btn g" style="padding:12px;font-size:12.5px" onclick="bulkScope('per')">이번 달 전부 개인으로</button></div>
- </div>
- <div class="sec">공동지출 내역 <span class="more">${rows.length}건</span></div>
- <div class="card">${rows.length?rows.map(r=>expRow(r.e,r.k)).join('')
-  :`<div class="empty">지출 입력 시 '공동지출'로 표시하면 여기에 모입니다</div>`}</div>`;
-};
-
-function bulkScope(v){
- const y=cur.getFullYear(),m=cur.getMonth();let n=0;
- monthExp(y,m,e=>{if(e.t==='in')return;e.sc=v;n++});
- save();render();toast(n+'건을 '+(v==='our'?'공동':'개인')+'지출로 바꿨어요');
-}
-
 /* ================= 생활 (할 일 · 장보기) ================= */
 let lifeTab='task';
 V.life=()=>{
@@ -2173,7 +2151,7 @@ function tasksView(){
  <div class="card">${g[1].map(x=>`<div class="row">
    <div class="tick ${x.done?'on':''}" onclick="tkToggle('${x.id}')">✓</div>
    <div class="t" onclick="tkSheet('${x.id}')" style="cursor:pointer"><b>${esc(x.title)}</b>
-     <span>${x.due?x.due.slice(5).replace('-','/')+' · ':''}${esc(x.who==='our'?'같이':S.names[x.who]||'')}${x.rep&&x.rep!=='none'?' · 반복':''}</span>
+     <span>${x.due?x.due.slice(5).replace('-','/')+' · ':''}${esc(x.who==='our'?'같이':S.names[x.who]||'')}${x.rep&&x.rep!=='none'?' · 🔁'+repLabel(x):''}</span>
      ${(x.tags||[]).length?`<span class="tgrow">${tagChips(x.tags)}</span>`:''}</div>
    <div class="x" onclick="tkDel('${x.id}')">×</div></div>`).join('')}</div>`).join('')}
  ${!undone.length?`<div class="card" style="text-align:center;padding:30px"><div style="font-size:28px">🎉</div>
@@ -2188,7 +2166,7 @@ let TK=null,TKid=null;
 function tkSheet(id){
  TKid=id||null;
  const f=id?S.tasks.find(x=>x.id===id):null;
- TK=f?JSON.parse(JSON.stringify(f)):{id:uid(),title:'',who:'our',due:today(),rep:'none',alarm:[],done:false};
+ TK=f?JSON.parse(JSON.stringify(f)):{id:uid(),title:'',who:'our',due:today(),rep:'none',every:1,unit:'day',alarm:[],done:false};
  drawTK();
 }
 function drawTK(){
@@ -2203,8 +2181,7 @@ function drawTK(){
  <div style="display:flex;gap:7px">
    <input class="in" type="date" style="flex:1" value="${TK.due||''}" onchange="TK.due=this.value">
    <button class="btn g" style="flex:0 0 66px;padding:0;font-size:12.5px" onclick="TK.due='';drawTK()">없음</button></div>
- <div class="fl">반복</div>
- <div class="opts">${REPS.map(r=>`<div class="opt sm ${TK.rep===r[0]?'on':''}" onclick="TK.rep='${r[0]}';drawTK()">${r[1]}</div>`).join('')}</div>
+ ${repBox('TK',TK)}
  ${tagBox(TK,'태그',tkCtx)}
  <div class="btns">
   ${TKid?`<button class="btn g" onclick="tkDel('${TKid}');close_()">삭제</button>`:`<button class="btn g" onclick="close_()">취소</button>`}
@@ -2223,7 +2200,7 @@ function tkToggle(id){
  const x=S.tasks.find(t=>t.id===id);if(!x)return;
  x.done=!x.done;
  if(x.done&&x.rep&&x.rep!=='none'&&x.due){
-  const nx={...x,id:uid(),done:false,due:nextRep(x.due,x.rep)};
+  const nx={...x,id:uid(),done:false,due:nextRep(x.due,x.rep,x)};
   S.tasks.push(nx);
  }
  save();render();
@@ -2331,7 +2308,7 @@ V.goals=()=>{
  :`<div class="card" style="text-align:center;padding:32px"><div style="font-size:30px">🎯</div>
    <div style="font-size:12.5px;color:var(--sub);margin-top:9px;font-weight:600">여행 · 저축 · 자동차 같은 함께할 목표를 만들어보세요</div></div>`}`;
 };
-function glSpend(id){let s=0;allExp(e=>{if(e.goalId===id&&e.t!=='in')s+=e.a});return s}
+function glSpend(id){let s=0;allExp(e=>{if(e.goalId===id&&e.t!=='in'&&e.t!=='tr')s+=e.a});return s}
 let GL=null,GLid=null;
 function glSheet(id){
  GLid=id||null;
@@ -2438,7 +2415,7 @@ function tripStat(t){
  Object.keys(S.days).forEach(k=>{if(k<t.start||k>t.end)return;
   const o=S.days[k];ph+=o.photos.length;
   dr+=Object.values(o.diary).filter(v=>v&&v.text).length;
-  (o.exp||[]).forEach(e=>{if(e.t!=='in')sum+=e.a;if(e.place&&e.place.name)pl.add(e.place.name)});
+  (o.exp||[]).forEach(e=>{if(e.t!=='in'&&e.t!=='tr')sum+=e.a;if(e.place&&e.place.name)pl.add(e.place.name)});
   (o.places||[]).forEach(p=>pl.add(p.n||p.name));});
  return {ev,pl:pl.size,ph,dr,sum};
 }
@@ -2548,7 +2525,7 @@ V.stats=()=>{
   ph+=o.photos.length;
   dr+=Object.values(o.diary).filter(v=>v&&v.text).length;
   if(+k.slice(0,4)===y){
-   (o.exp||[]).forEach(e=>{if(e.t==='in')return;outY+=e.a;if(scopeOf(e)==='our')ourY+=e.a;
+   (o.exp||[]).forEach(e=>{if(e.t==='in'||e.t==='tr')return;outY+=e.a;if(scopeOf(e)==='our')ourY+=e.a;
     if(e.cat==='데이트')dates++;});
   }});
  const pl=placeAgg();
@@ -2581,12 +2558,11 @@ V.stats=()=>{
  <div class="card">${top10.map((p,i)=>`<div class="row" onclick="placeDetail('${esc(p.pid||p.name)}')" style="cursor:pointer">
    <div class="ic">${i+1}</div><div class="t"><b>${esc(p.name)}</b><span>${esc(p.address||'')}</span></div>
    <div class="r">${p.cnt}회 · ${won(p.sum)}원</div></div>`).join('')}</div>`:''}
- <div class="sec">월별 지출 추이 (${y})</div>
- <div class="card">${(()=>{
-   const arr=Array.from({length:12},(_,i)=>monthOut(y,i));
-   const mx=Math.max(1,...arr);
-   return `<div class="trend" style="height:80px">${arr.map(v=>`<i class="${v===mx?'hi':''}" style="height:${v/mx*100}%"></i>`).join('')}</div>
-   <div class="cmp">최대 ${comma(mx)}원 · 연 합계 ${comma(arr.reduce((a,b)=>a+b,0))}원</div>`})()}</div>`;
+ <div class="card" style="padding:6px 14px">
+   <div class="exp" style="cursor:pointer" onclick="go('led')">
+     <div class="ic">📈</div><div class="t"><b>월별 지출 추이</b><span>가계부에서 기준별로 볼 수 있어요</span></div>
+     <div style="color:var(--sub)">›</div></div>
+ </div>`;
 };
 
 /* ================= 알림센터 ================= */
@@ -2680,7 +2656,7 @@ function placeDetail(id){
  if(!p){Object.keys(S.days).forEach(k=>(S.days[k].places||[]).forEach(x=>{if((x.n||x.name)===id)p={name:x.n||x.name,address:x.c||''}}))}
  if(!p)return;
  const meta=S.placeMeta[id]||{};
- const sum=rows.filter(r=>r.e.t!=='in').reduce((a,b)=>a+b.e.a,0);
+ const sum=rows.filter(r=>r.e.t!=='in'&&r.e.t!=='tr').reduce((a,b)=>a+b.e.a,0);
  const dayKs=[...new Set(rows.map(r=>r.k))];
  const diaries=dayKs.filter(k=>Object.values(S.days[k].diary||{}).some(v=>v&&v.text));
  const photos=[];dayKs.forEach(k=>(S.days[k].photos||[]).forEach(x=>photos.push(x)));
@@ -2722,21 +2698,23 @@ function plMeta(id,f,v){
 /* ================= 지출 시트 v3 ================= */
 function newEX(){return {id:uid(),date:EXkey,t:'out',a:0,cat:S.cats[0].n,sub:'',icon:S.cats[0].e,
  by:S.profile,sc:'our',pay:{type:'card',issuer:S.pay.card[0]||''},place:null,name:'',
- tags:[],goalId:'',tripId:'',priv:false,at:Date.now()}}
+ tags:[],goalId:'',tripId:'',priv:false,_touched:false,_auto:false,at:Date.now()}}
 function drawEX(){
  fixCat();
  PLTARGET='ex';
  if(!EX.tags)EX.tags=[];
  if(!EX.sc)EX.sc='our';
- const inc=EX.t==='in';
+ const inc=EX.t==='in', trf=EX.t==='tr';
  const CL=catsFor(EX.t), c=catOf(EX.cat,EX.t), subs=(c.subs||[]);
  const issuers=EX.pay.type==='card'?S.pay.card:EX.pay.type==='point'?S.pay.point:[];
  const isFav=EX.place&&S.favPlaces.some(p=>p.name===EX.place.name);
- sheet(`<h3>${EXid?(inc?'수입 수정':'지출 수정'):'지출 · 수입 입력'}</h3>
+ sheet(`<h3>${EXid?(inc?'수입 수정':trf?'이체 수정':'지출 수정'):'지출 · 수입 · 이체 입력'}</h3>
   <div class="seg">
-    <div class="sg ${!inc?'on':''}" onclick="EX.t='out';drawEX()">지출</div>
+    <div class="sg ${EX.t==='out'?'on':''}" onclick="EX.t='out';drawEX()">지출</div>
     <div class="sg ${inc?'on':''}" onclick="EX.t='in';drawEX()">수입</div>
+    <div class="sg ${trf?'on':''}" onclick="EX.t='tr';drawEX()">🔁 이체</div>
   </div>
+  ${trf?`<div style="font-size:11px;color:var(--sub);font-weight:700;margin:8px 2px 0;line-height:1.7">내 계좌·카드 사이의 돈 이동입니다. 지출·수입·예산·소비분석 어디에도 잡히지 않아요.</div>`:''}
   <div class="fl">날짜</div>
   <div style="display:flex;gap:7px">
     <input class="in" type="date" style="flex:1" value="${EX.date}" onchange="EX.date=this.value||EX.date;drawEX()">
@@ -2747,20 +2725,17 @@ function drawEX(){
   <input class="in amt" id="eA" inputmode="numeric" placeholder="0" value="${EX.a?comma(EX.a):''}" oninput="fmtA(this)">
   <div class="pads">${[1000,5000,10000,30000,50000,'C'].map(v=>`<button onclick="padA('${v}')">${v==='C'?'지우기':'+'+won(v)}</button>`).join('')}</div>
 
-  ${inc?'':`<div class="fl">공동 / 개인</div>
+  ${(inc||trf)?'':`<div class="fl">공동 / 개인</div>
   <div class="seg">
     <div class="sg ${EX.sc==='our'?'on our':''}" onclick="EX.sc='our';drawEX()">공동지출</div>
     <div class="sg ${EX.sc==='per'?'on':''}" onclick="EX.sc='per';drawEX()">개인지출</div>
   </div>
-  <div style="font-size:11px;color:var(--sub);font-weight:600;margin:6px 2px 0">공동지출만 월말 정산에 반영됩니다</div>`}
+  <div style="font-size:11px;color:var(--sub);font-weight:600;margin:6px 2px 0">공동지출은 ❤️공동 필터에 모여요</div>`}
 
-  <div class="fl">${inc?'수입 분류':'카테고리'}</div>
-  <div class="opts">${CL.map((x,i2)=>`<div class="opt ${x.n===EX.cat?'on':''}" onclick="pickCat(${i2})">${x.e} ${esc(x.n)}</div>`).join('')}
-    <div class="opt sm" style="border-style:dashed" onclick="catTab='${inc?'in':'out'}';go('cats');close_()">＋ 편집</div></div>
-  ${subs.length?`<div class="opts" style="margin-top:7px">
-    ${subs.map((sb,k2)=>`<div class="opt sm ${EX.sub===sb?'on':''}" onclick="pickSub(${k2})">${esc(sb)}</div>`).join('')}</div>`:''}
+  <div class="fl">${inc?'수입 분류':trf?'이체 유형':'카테고리'}</div>
+  <div id="catbox">${catBoxHTML()}</div>
 
-  ${inc?'':`<div class="fl">결제수단</div>
+  ${(inc||trf)?'':`<div class="fl">결제수단</div>
   <div class="seg">${PAYT.map(p=>`<div class="sg ${EX.pay.type===p[0]?'on':''}" onclick="pickPay('${p[0]}')">${p[2]} ${p[1]}</div>`).join('')}</div>
   ${issuers.length?`<div class="opts" style="margin-top:8px">
     ${issuers.map(x=>`<div class="opt sm ${EX.pay.issuer===x?'on':''}" onclick="pickIssuer('${esc(x)}')">${esc(x)}</div>`).join('')}
@@ -2768,14 +2743,14 @@ function drawEX(){
    :(EX.pay.type==='cash'?`<div class="opts" style="margin-top:8px">
     ${['','계좌이체'].map(x=>`<div class="opt sm ${EX.pay.issuer===x?'on':''}" onclick="pickIssuer('${x}')">${x||'현금'}</div>`).join('')}</div>`:'')}`}
 
-  <div class="fl">${inc?'누가 받았나요':'누가 결제했나요'}</div>
+  <div class="fl">${inc?'누가 받았나요':trf?'누구 계좌인가요':'누가 결제했나요'}</div>
   <div class="seg">
     <div class="sg ${EX.by==='me'?'on me':''}" onclick="EX.by='me';drawEX()">${esc(S.names.me)}</div>
     <div class="sg ${EX.by==='you'?'on you':''}" onclick="EX.by='you';drawEX()">${esc(S.names.you)}</div>
     <div class="sg ${EX.by==='our'?'on our':''}" onclick="EX.by='our';drawEX()">공용카드</div>
   </div>
 
-  <div class="fl">${inc?'어디서 받았나요 (선택)':'어디서 썼나요'}</div>
+  <div class="fl">${inc?'어디서 받았나요 (선택)':trf?'메모할 곳 (선택)':'어디서 썼나요'}</div>
   ${EX.place?`<div class="plsel"><div class="ic">📍</div>
      <div class="t"><b>${esc(EX.place.name)}</b><span>${esc(EX.place.address||'좌표 없음')}</span></div>
      <div class="x" style="color:${isFav?'#F0A828':'#D9C0CB'};font-size:19px" onclick="toggleFav()">${isFav?'★':'☆'}</div>
@@ -2785,7 +2760,8 @@ function drawEX(){
     ${S.favPlaces.slice(0,6).map((p,i3)=>`<div class="opt sm" onclick="useFav(${i3})">⭐ ${esc(p.name)}</div>`).join('')}</div>`:''}
 
   <div class="fl">내용</div>
-  <input class="in" id="eN" placeholder="${inc?'예: 8월 급여':'예: 저녁 칼국수'}" value="${esc(EX.name)}" oninput="EX.name=this.value">
+  <input class="in" id="eN" placeholder="${inc?'예: 8월 급여':trf?'예: 국민 → 카카오뱅크':'예: 저녁 칼국수'}" value="${esc(EX.name)}" oninput="exName(this.value)">
+  <div id="csugrow">${catSugRow()}</div>
 
   ${tagBox(EX,'태그',exCtx)}
 
@@ -2824,7 +2800,6 @@ V.more=()=>{
   ['✈️','여행 기록','기간별로 자동으로 묶기',"go('trip')"],
   ['📅','예산 관리','전체 · 카테고리별 예산',"go('budget')"],
   ['🧾','고정비 · 반복지출','관리비 · 통신비 · 구독',"go('fixed')"],
-  ['⚖️','공동지출 정산','누가 얼마를 더 냈나',"go('settle')"],
   ['📊','가계부 엑셀','엑셀로 가져오기 · 내보내기',"go('xls')"],
   ['🖼️','사진 설정','화질 · Google Photos · 용량 정리',"go('gset')"],
   ['📔','기록 목록','날짜별 다이어리',"go('list')"],
@@ -3626,7 +3601,7 @@ V.tag=()=>{
  const g={};
  items.forEach(x=>{(g[x.kind]=g[x.kind]||[]).push(x)});
  const exps=(g.exp||[]).map(x=>x.o);
- const sum=exps.filter(e=>e.t!=='in').reduce((a,b)=>a+b.a,0);
+ const sum=exps.filter(e=>e.t!=='in'&&e.t!=='tr').reduce((a,b)=>a+b.a,0);
  return `
  <div class="hero" style="text-align:center;background:linear-gradient(135deg,${tagColor(id)}33,${tagColor(id)}14)">
    <div class="d2" style="font-size:26px;color:${tagColor(id)}">#${esc(t.n)}</div>
@@ -3986,7 +3961,7 @@ function tagStat(id,year){
   st.cnt++;
   (o.tags||[]).forEach(t2=>{if(t2!==id)st.co[t2]=(st.co[t2]||0)+1});
   if(kind==='exp'){
-   if(o.t==='in')st.inn+=o.a; else {st.out+=o.a;st.n++;
+   if(o.t==='tr'){} else if(o.t==='in')st.inn+=o.a; else {st.out+=o.a;st.n++;
      const d=parse(k); if(!isNaN(d))st.months[d.getMonth()]+=o.a}
    if(o.place&&o.place.name)st.place.add(o.place.name);
   }
@@ -4073,6 +4048,7 @@ function sheetToBlob(wb,name){
 
 /* ---------- 값 파서 ---------- */
 const XCOLS=['날짜','구분','내용','금액','카테고리','소분류','결제자','공동/개인','결제수단','장소','태그','메모'];
+const XOCOLS=XCOLS.concat(['기준']);
 const ALIAS={
  '날짜':['날짜','일자','사용일자','거래일자','거래일','사용일','date','일시','결제일'],
  '구분':['구분','유형','수입지출','입출금','타입','type','분류구분'],
@@ -4138,6 +4114,7 @@ function xNum(v){
 }
 function xType(v,amt){
  const s=String(v==null?'':v).trim();
+ if(/이체|송금|transfer|振替/i.test(s))return 'tr';
  if(/수입|입금|income|in$|\+/i.test(s))return 'in';
  if(/지출|출금|expense|out$|-/i.test(s))return 'out';
  if(typeof amt==='number'&&amt<0)return 'out';
@@ -4319,16 +4296,16 @@ function xiValidate(){
   let cat=String(g(r,'카테고리')||'').trim();
   let sub=String(g(r,'소분류')||'').trim();
   if(cat.includes('>')){const p=cat.split('>');cat=p[0].trim();if(!sub)sub=p[1].trim()}
-  if(!cat)cat=(t==='in'?(S.incomeCats[0]||{}).n:(S.cats[0]||{}).n)||'기타';
+  if(!cat)cat=(t==='in'?(S.incomeCats[0]||{}).n:t==='tr'?'계좌이체':(S.cats[0]||{}).n)||'기타';
   const L=catsFor(t);
-  if(!L.some(x=>x.n===cat))newCats.add(t+'|'+cat);
+  if(t!=='tr'&&!L.some(x=>x.n===cat))newCats.add(t+'|'+cat);
   const by=xWho(g(r,'결제자'))||S.profile;
   const sc=xScope(g(r,'공동/개인'))||'our';
   const pay=xPay(g(r,'결제수단'));
   const tags=xTags(g(r,'태그'));
   tags.forEach(x=>{if(!tagOf(tagKey(x)))newTags.add(x)});
   const row={id:uid(),date,t,a:a||0,cat,sub,icon:(catOf(cat,t)||{}).e||'📦',
-   by,sc:t==='in'?'per':sc,pay,place:String(g(r,'장소')||'').trim()?{name:String(g(r,'장소')).trim(),address:'',lat:null,lng:null,pid:''}:null,
+   by,sc:(t==='in'||t==='tr')?'per':sc,pay,place:String(g(r,'장소')||'').trim()?{name:String(g(r,'장소')).trim(),address:'',lat:null,lng:null,pid:''}:null,
    name:String(g(r,'내용')||'').trim(),memo:String(g(r,'메모')||'').trim(),
    tags:[],_tagNames:tags,at:Date.now(),_line:i+2};
   if(errs.length){bad.push({line:i+2,raw:r,err:errs.join(', ')});return}
@@ -4345,7 +4322,7 @@ function xiValidate(){
 function xiPreview(){
  const ok=XI.ok, bad=XI.bad, dup=XI.dup;
  const willAdd=XI.dupMode==='skip'?ok.filter(r=>!r._dup).length:ok.length;
- const sum=ok.filter(r=>r.t!=='in'&&(XI.dupMode!=='skip'||!r._dup)).reduce((a,b)=>a+b.a,0);
+ const sum=ok.filter(r=>r.t!=='in'&&r.t!=='tr'&&(XI.dupMode!=='skip'||!r._dup)).reduce((a,b)=>a+b.a,0);
  sheet(`<h3>미리보기</h3>
  <div class="bs" style="margin-bottom:10px">
    <div class="b"><span>전체</span><b>${XI.body.length}건</b></div>
@@ -4369,7 +4346,7 @@ function xiPreview(){
     <div class="ic">${r.icon}</div>
     <div class="t"><b>${esc(r.name||r.cat)}${r._dup?' <span style="color:var(--warn);font-size:10px">중복</span>':''}</b>
       <span>${r.date} · ${esc(r.cat)}${r.sub?' › '+esc(r.sub):''} · ${esc(byName(r.by))} · ${esc(r.sc==='our'?'공동':'개인')}</span></div>
-    <div class="r" style="color:${r.t==='in'?'var(--ok)':'var(--warn)'}">${r.t==='in'?'+':'-'}${comma(r.a)}</div></div>`).join('')}
+    <div class="r" style="color:${r.t==='in'?'var(--ok)':r.t==='tr'?'#7FC7E8':'var(--warn)'}">${r.t==='in'?'+':r.t==='tr'?'':'-'}${comma(r.a)}</div></div>`).join('')}
  </div>
  ${bad.length?`<div class="fl">오류 ${bad.length}건</div>
  <div style="max-height:16vh;overflow-y:auto;font-size:11px;color:var(--sub);font-weight:600;line-height:1.7">
@@ -4390,7 +4367,8 @@ async function xiCommit(){
  /* 새 카테고리 */
  XI.newCats.forEach(x=>{
   const [t,n]=x.split('|');
-  const L=t==='in'?S.incomeCats:S.cats;
+  if(t==='tr')return;
+ const L=t==='in'?S.incomeCats:S.cats;
   if(!L.some(c=>c.n===n))L.push(t==='in'?{n,e:'💰'}:{n,e:'📦',subs:[]});
  });
  /* 새 태그 */
@@ -4527,19 +4505,20 @@ function xoGo(){
   const rows=xoRows();
   if(!rows.length)return toast('조건에 맞는 내역이 없어요');
   /* 시트1 상세 */
-  const d1=[XCOLS];
-  rows.forEach(({e,k})=>d1.push([k, e.t==='in'?'수입':'지출', e.name||'', e.a, e.cat, e.sub||'',
+  const d1=[XOCOLS];
+  rows.forEach(({e,k})=>d1.push([k, e.t==='in'?'수입':e.t==='tr'?'이체':'지출', e.name||'', e.a, e.cat, e.sub||'',
     byName(e.by), scopeOf(e)==='our'?'공동':'개인', payLabel(e),
-    (e.place&&e.place.name)||'', (e.tags||[]).map(t=>'#'+tagName(t)).join(','), e.memo||'']));
+    (e.place&&e.place.name)||'', (e.tags||[]).map(t=>'#'+tagName(t)).join(','), e.memo||'',
+    expWho(e)==='our'?'공동':expWho(e)==='me'?S.names.me:S.names.you]));
   const ws1=XLSX.utils.aoa_to_sheet(d1);
-  ws1['!cols']=[{wch:12},{wch:7},{wch:20},{wch:12},{wch:12},{wch:10},{wch:10},{wch:10},{wch:13},{wch:18},{wch:18},{wch:20}];
-  ws1['!autofilter']={ref:XLSX.utils.encode_range({s:{r:0,c:0},e:{r:d1.length-1,c:XCOLS.length-1}})};
+  ws1['!cols']=[{wch:12},{wch:7},{wch:20},{wch:12},{wch:12},{wch:10},{wch:10},{wch:10},{wch:13},{wch:18},{wch:18},{wch:20},{wch:9}];
+  ws1['!autofilter']={ref:XLSX.utils.encode_range({s:{r:0,c:0},e:{r:d1.length-1,c:XOCOLS.length-1}})};
   ws1['!freeze']={xSplit:0,ySplit:1};
   for(let r=1;r<d1.length;r++){const c=XLSX.utils.encode_cell({r,c:3});if(ws1[c])ws1[c].z='#,##0'}
   /* 시트2 월별 */
   const M={};
   rows.forEach(({e,k})=>{const ym=k.slice(0,7); M[ym]=M[ym]||{inn:0,out:0,our:0,per:0};
-    if(e.t==='in')M[ym].inn+=e.a; else {M[ym].out+=e.a; if(scopeOf(e)==='our')M[ym].our+=e.a; else M[ym].per+=e.a}});
+    if(e.t==='tr')return; if(e.t==='in')M[ym].inn+=e.a; else {M[ym].out+=e.a; if(scopeOf(e)==='our')M[ym].our+=e.a; else M[ym].per+=e.a}});
   const d2=[['월','수입','지출','공동지출','개인지출','합계']];
   Object.keys(M).sort().forEach(ym=>{const m=M[ym];d2.push([ym,m.inn,m.out,m.our,m.per,m.inn-m.out])});
   const tt=Object.values(M).reduce((a,b)=>({inn:a.inn+b.inn,out:a.out+b.out,our:a.our+b.our,per:a.per+b.per}),{inn:0,out:0,our:0,per:0});
@@ -4547,16 +4526,16 @@ function xoGo(){
   const ws2=XLSX.utils.aoa_to_sheet(d2); ws2['!cols']=[{wch:10},{wch:14},{wch:14},{wch:14},{wch:14},{wch:14}];
   /* 시트3 카테고리별 */
   const C={};
-  rows.forEach(({e})=>{if(e.t==='in')return;C[e.cat]=(C[e.cat]||0)+e.a});
+  rows.forEach(({e})=>{if(e.t==='in'||e.t==='tr')return;C[e.cat]=(C[e.cat]||0)+e.a});
   const ctot=Object.values(C).reduce((a,b)=>a+b,0)||1;
   const d3=[['카테고리','금액','비율','건수']];
   Object.keys(C).sort((a,b)=>C[b]-C[a]).forEach(c=>d3.push([c,C[c],Math.round(C[c]/ctot*1000)/10+'%',
-    rows.filter(r=>r.e.cat===c&&r.e.t!=='in').length]));
-  d3.push(['합계',ctot,'100%',rows.filter(r=>r.e.t!=='in').length]);
+    rows.filter(r=>r.e.cat===c&&r.e.t!=='in'&&r.e.t!=='tr').length]));
+  d3.push(['합계',ctot,'100%',rows.filter(r=>r.e.t!=='in'&&r.e.t!=='tr').length]);
   const ws3=XLSX.utils.aoa_to_sheet(d3); ws3['!cols']=[{wch:14},{wch:14},{wch:9},{wch:8}];
   /* 시트4 태그별 */
   const T={};
-  rows.forEach(({e})=>{(e.tags||[]).forEach(id=>{T[id]=T[id]||{a:0,n:0};if(e.t!=='in'){T[id].a+=e.a;T[id].n++}})});
+  rows.forEach(({e})=>{(e.tags||[]).forEach(id=>{T[id]=T[id]||{a:0,n:0};if(e.t!=='in'&&e.t!=='tr'){T[id].a+=e.a;T[id].n++}})});
   const d4=[['태그','지출액','건수']];
   Object.keys(T).sort((a,b)=>T[b].a-T[a].a).forEach(id=>d4.push(['#'+tagName(id),T[id].a,T[id].n]));
   if(d4.length===1)d4.push(['(태그 없음)',0,0]);
@@ -5142,6 +5121,797 @@ V.gset=()=>{
  </div>`;
 };
 
+
+/* ================= 가계부 고도화 1차 =================
+   · 이체 유형 추가 (소비 집계에서 제외)
+   · 전체 / 공동 / 보키 / 로키 필터를 가계부 전체에 일관 적용
+   ================================================== */
+
+const out0=n=>n||0;
+
+/* ---- 거래 유형 ---- */
+const isIn =e=>e&&e.t==='in';
+const isTr =e=>e&&e.t==='tr';
+const isOut=e=>e&&e.t!=='in'&&e.t!=='tr';
+const TTYPE=[['out','지출','💸'],['in','수입','💰'],['tr','이체','🔁']];
+const tName=t=>t==='in'?'수입':t==='tr'?'이체':'지출';
+const tColor=t=>t==='in'?'var(--ok)':t==='tr'?'#7FC7E8':'var(--warn)';
+const tSign=t=>t==='in'?'+':t==='tr'?'':'-';
+
+/* ---- 사용자 축 : 공동 / 보키(me) / 로키(you) ---- */
+function expWho(e){
+ if(!e)return 'our';
+ if(scopeOf(e)==='our')return 'our';
+ if(e.by==='our')return 'our';
+ return e.by==='you'?'you':'me';
+}
+const whoLabel=w=>w==='our'?'공동':(S.names[w]||w);
+const whoIcon =w=>w==='our'?'❤️':w==='me'?'👩':'👨';
+const whoColor=w=>w==='our'?'var(--our)':w==='me'?'var(--me)':'var(--you)';
+let ledWho='all';
+function whoOK(e){return ledWho==='all'?true:expWho(e)===ledWho}
+function setLedWho(w){ledWho=w;render()}
+function whoBar(){
+ return `<div class="whobar">
+  ${[['all','전체','📊'],['our','공동','❤️'],['me',S.names.me,'👩'],['you',S.names.you,'👨']].map(w=>
+   `<div class="wb ${ledWho===w[0]?'on':''}" style="${ledWho===w[0]&&w[0]!=='all'?`background:${whoColor(w[0])};border-color:${whoColor(w[0])}`:''}"
+     onclick="setLedWho('${w[0]}')">${w[2]} ${esc(w[1])}</div>`).join('')}
+ </div>`;
+}
+
+/* ---- 집계 (필터 반영) ---- */
+function monthAgg(y,m,who){
+ const W=who===undefined?ledWho:who;
+ const ok=e=>W==='all'||expWho(e)===W;
+ const R={out:0,inc:0,tr:0,cnt:0,byCat:{},bySub:{},byWho:{our:0,me:0,you:0},byPay:{},byDay:{},byDayIn:{}};
+ monthExp(y,m,(e,k)=>{
+  if(!ok(e))return;
+  const d=parse(k).getDate();
+  if(isTr(e)){R.tr+=e.a;return}
+  if(isIn(e)){R.inc+=e.a;R.byDayIn[d]=(R.byDayIn[d]||0)+e.a;return}
+  R.out+=e.a;R.cnt++;
+  R.byCat[e.cat]=(R.byCat[e.cat]||0)+e.a;
+  const sk=e.cat+'||'+(e.sub||'기타'); R.bySub[sk]=(R.bySub[sk]||0)+e.a;
+  R.byWho[expWho(e)]=(R.byWho[expWho(e)]||0)+e.a;
+  const pl=payLabel(e); R.byPay[pl]=(R.byPay[pl]||0)+e.a;
+  R.byDay[d]=(R.byDay[d]||0)+e.a;
+ });
+ return R;
+}
+/* 예산·통계용 지출 합계 (필터 반영, 이체 제외) */
+function monthOut(y,m,cat,who){
+ const W=who===undefined?ledWho:who;
+ let s=0;
+ monthExp(y,m,e=>{
+  if(!isOut(e))return;
+  if(W!=='all'&&expWho(e)!==W)return;
+  if(cat&&e.cat!==cat)return;
+  s+=e.a;
+ });
+ return s;
+}
+function budgetState(y,m,who){
+ const b=S.budget||{};
+ const out=monthOut(y,m,null,who);
+ const total=b.monthly||0;
+ const cats=Object.keys(b.cats||{}).map(c=>({c,limit:b.cats[c],used:monthOut(y,m,c,who)}))
+  .filter(x=>x.limit>0);
+ return {out,total,cats,pct:total?out/total*100:0,left:Math.max(0,total-out)};
+}
+function daySum(k){const d=S.days[k];return d?d.exp.reduce((a,b)=>a+(isOut(b)?b.a:0),0):0}
+function dayAgg(k){
+ const d=S.days[k]; const R={out:0,inc:0,tr:0,who:{our:0,me:0,you:0},list:[]};
+ if(!d)return R;
+ (d.exp||[]).forEach(e=>{
+  if(!whoOK(e))return;
+  R.list.push(e);
+  if(isTr(e)){R.tr+=e.a;return}
+  if(isIn(e)){R.inc+=e.a;return}
+  R.out+=e.a; R.who[expWho(e)]=(R.who[expWho(e)]||0)+e.a;
+ });
+ return R;
+}
+
+/* ---- 토스식 날짜별 달력 ---- */
+let ledDay=null;
+function ledCal(y,m){
+ const first=new Date(y,m,1).getDay(), last=new Date(y,m+1,0).getDate(), tk=today();
+ let g='';
+ for(let i=0;i<first;i++)g+='<div class="lc0"></div>';
+ for(let d=1;d<=last;d++){
+  const k=`${y}-${pad(m+1)}-${pad(d)}`;
+  const a=dayAgg(k);
+  const sel=ledDay===k;
+  g+=`<div class="lc1 ${sel?'on':''} ${k===tk?'td':''}" onclick="ledDay='${k}';render()">
+    <div class="dd">${d}</div>
+    ${a.out?`<div class="mo">-${won(a.out)}</div>`:''}
+    ${a.inc?`<div class="pl">+${won(a.inc)}</div>`:''}
+    ${!a.out&&!a.inc&&a.tr?`<div class="trm">🔁</div>`:''}
+  </div>`;
+ }
+ return `<div class="ldow">${DOW.map(x=>`<span>${x}</span>`).join('')}</div><div class="lgrid">${g}</div>`;
+}
+
+/* ---- 가계부 메인 ---- */
+V.led=()=>{
+ const y=cur.getFullYear(),m=cur.getMonth(),pre=new Date(y,m-1,1);
+ const R=monthAgg(y,m);
+ const P=monthAgg(pre.getFullYear(),pre.getMonth());
+ const prev=P.out, diff=out0(R.out-prev);
+ const cs=Object.entries(R.byCat).sort((a,b)=>b[1]-a[1]);
+ const tot=cs.reduce((a,b)=>a+b[1],0)||1;
+ let acc=0,segs='';
+ cs.forEach((c,i)=>{const p=c[1]/tot*100;
+  segs+=`<circle r="15.9" cx="18" cy="18" fill="none" stroke="${COL[i%9]}" stroke-width="5.2" stroke-dasharray="${p.toFixed(2)} ${(100-p).toFixed(2)}" stroke-dashoffset="${(25-acc).toFixed(2)}"/>`;acc+=p});
+ const last=new Date(y,m+1,0).getDate();
+ const wt=R.byWho.me+R.byWho.you+R.byWho.our||1;
+ const ps=Object.entries(R.byPay).sort((a,b)=>b[1]-a[1]);
+ const bud=S.budget.monthly||0;
+ const B=budgetState(y,m);
+ if(ledDay&&ledDay.slice(0,7)!==`${y}-${pad(m+1)}`)ledDay=null;
+ const dsel=ledDay?dayAgg(ledDay):null;
+ return `
+ <div class="mrow"><div class="m" style="font-size:16px">${y}년 ${m+1}월</div>
+   <div class="nav"><button onclick="mv(-1)">‹</button><button onclick="mv(1)">›</button>
+   <button onclick="lfSheet()" style="width:auto;padding:0 11px;font-weight:800">🔎 검색</button>
+   <button onclick="go('xls')" style="width:auto;padding:0 11px;font-weight:800">엑셀</button></div></div>
+
+ ${whoBar()}
+
+ <div class="bs">
+   <div class="b"><span>수입</span><b style="color:var(--ok)">${won(R.inc)}</b></div>
+   <div class="b"><span>지출</span><b style="color:var(--warn)">${won(R.out)}</b></div>
+   <div class="b"><span>잔액</span><b>${R.inc-R.out>=0?'+':'-'}${won(R.inc-R.out)}</b></div>
+ </div>
+ ${R.tr?`<div style="text-align:center;font-size:11px;color:var(--sub);font-weight:700;margin:-4px 0 8px">🔁 이체 ${comma(R.tr)}원은 수입·지출에서 제외했어요</div>`:''}
+
+ <div class="card">
+   ${prev?`<div class="prow" style="margin-top:0"><span>지난달 ${comma(prev)}원</span>
+     <span style="color:${diff>0?'var(--warn)':'var(--ok)'};font-weight:800">
+       ${diff===0?'같아요':`${diff>0?'+':'-'}${comma(Math.abs(diff))}원 (${Math.abs(diff/prev*100).toFixed(1)}%)`}</span></div>
+   <div class="cmp">${diff>0?`지난달보다 ${comma(Math.abs(diff))}원 더 썼어요`:diff<0?`지난달보다 ${comma(Math.abs(diff))}원 덜 썼어요`:'지난달과 같아요'}</div>`
+   :`<div class="cmp" style="margin-top:0">지난달 자료가 쌓이면 비교해드려요</div>`}
+ </div>
+
+ ${bud?`<div class="card"><div class="prow" style="margin-top:0"><span>이달 예산 ${won(bud)}원</span>
+   <span style="color:${B.pct>100?'var(--warn)':'var(--ok)'}">${Math.round(B.pct)}% 사용</span></div>
+   <div class="bar"><i style="width:${Math.min(100,B.pct)}%;background:${B.pct>100?'var(--warn)':'linear-gradient(90deg,#F472B6,#A78BFA)'}"></i></div>
+   <div class="cmp">${B.pct>100?`<b style="color:var(--warn)">${comma(B.out-B.total)}원 초과</b>`:`남은 금액 ${comma(B.left)}원`}
+     ${ledWho!=='all'?` · ${whoIcon(ledWho)} ${esc(whoLabel(ledWho))} 기준`:''}
+     <span class="more" onclick="go('budget')">예산 설정 ›</span></div></div>`:''}
+
+ <div class="sec">날짜별 지출</div>
+ <div class="card" style="padding:12px 10px">${ledCal(y,m)}</div>
+
+ ${dsel?`
+ <div class="sec">${(()=>{const d=parse(ledDay);return `${d.getDate()}일 ${DOW[d.getDay()]}요일`})()}
+   <span class="more" onclick="selDate='${ledDay}';expSheet()">＋ 추가</span></div>
+ <div class="card">
+   <div class="prow" style="margin-top:0"><span>지출</span><b style="color:var(--warn)">${comma(dsel.out)}원</b></div>
+   ${dsel.inc?`<div class="prow"><span>수입</span><b style="color:var(--ok)">${comma(dsel.inc)}원</b></div>`:''}
+   ${dsel.tr?`<div class="prow"><span>이체</span><b style="color:#7FC7E8">${comma(dsel.tr)}원</b></div>`:''}
+   ${dsel.out?`<div style="border-top:1px dashed var(--line);margin-top:8px;padding-top:6px">
+     ${['our','me','you'].filter(w=>dsel.who[w]).map(w=>`<div class="prow"><span>${whoIcon(w)} ${esc(whoLabel(w))}</span>
+       <span style="color:${whoColor(w)}">${comma(dsel.who[w])}원</span></div>`).join('')}</div>`:''}
+ </div>
+ <div class="card">
+   ${dsel.list.length?dsel.list.map(e=>ledRow(e,ledDay)).join('')
+   :`<div class="empty">이 날은 기록이 없어요</div>`}
+   <button class="btn g" style="width:100%;padding:11px;margin-top:8px;font-size:12.5px" onclick="openDay('${ledDay}')">이 날 다이어리 보기</button>
+ </div>`:`<div style="text-align:center;font-size:11.5px;color:var(--sub);font-weight:700;margin:-4px 0 10px">날짜를 누르면 그날 내역이 나와요</div>`}
+
+ ${R.out?`
+ ${ledWho==='all'?`<div class="sec">누가 얼마나 썼나</div>
+ <div class="card">
+   ${['our','me','you'].map(w=>`
+     <div class="prow"><span><i class="sw" style="background:${whoColor(w)}"></i>${whoIcon(w)} ${esc(whoLabel(w))}</span>
+       <span>${comma(R.byWho[w])}원 · ${Math.round(R.byWho[w]/wt*100)}%</span></div>
+     <div class="bar"><i style="width:${R.byWho[w]/wt*100}%;background:${whoColor(w)}"></i></div>`).join('')}
+ </div>`:''}
+
+ <div class="sec">카테고리별 <span class="more">${R.cnt}건</span></div>
+ <div class="card">
+   <div style="display:flex;align-items:center;gap:14px;margin-bottom:10px">
+     <svg width="98" height="98" viewBox="0 0 36 36" style="transform:rotate(-90deg);flex:0 0 auto">${segs}</svg>
+     <div style="flex:1">
+       <div style="font-size:10.5px;color:var(--sub);font-weight:800">${ledWho==='all'?'이달 총 지출':whoIcon(ledWho)+' '+esc(whoLabel(ledWho))+' 지출'}</div>
+       <div style="font-size:21px;font-weight:900;letter-spacing:-.6px;margin-top:2px">${comma(R.out)}원</div>
+       <div style="font-size:11px;color:var(--sub);font-weight:600;margin-top:3px">하루 평균 ${comma(Math.round(R.out/last))}원</div>
+     </div>
+   </div>
+   ${cs.map((c,i)=>{const o2=catOf(c[0],'out');const open=ledOpen===c[0];
+     const subs=Object.entries(R.bySub).filter(([k2])=>k2.split('||')[0]===c[0]).sort((a,b)=>b[1]-a[1]);
+     return `<div class="cbar" onclick="ledOpen=${open?'null':`'${c[0]}'`};render()">
+       <div class="prow" style="margin-top:9px"><span>${o2.e} ${esc(c[0])}</span>
+         <span>${comma(c[1])}원 · ${Math.round(c[1]/tot*100)}%</span></div>
+       <div class="bar"><i style="width:${c[1]/tot*100}%;background:${COL[i%9]}"></i></div>
+       ${open&&subs.length?`<div class="subs">${subs.map(s=>`<div class="srow"><span>${esc(s[0].split('||')[1])}</span><b>${comma(s[1])}원</b></div>`).join('')}</div>`:''}
+     </div>`}).join('')}
+ </div>
+
+ <div class="sec">결제수단별</div>
+ <div class="card">
+   ${ps.map((p,i)=>`<div class="prow"><span>${esc(p[0])}</span><span>${comma(p[1])}원</span></div>
+     <div class="bar"><i style="width:${p[1]/tot*100}%;background:${COL[(i+3)%9]}"></i></div>`).join('')}
+ </div>`:`<div class="card"><div class="empty">${ledWho==='all'?'이달 지출 기록이 없어요':whoIcon(ledWho)+' '+esc(whoLabel(ledWho))+' 지출이 없어요'}</div></div>`}
+
+ ${trendCard()}
+ <div class="card" style="padding:6px 14px">
+   <div class="exp" style="cursor:pointer" onclick="lfSheet()">
+     <div class="ic">🔎</div><div class="t"><b>거래 검색</b><span>기간 · 금액 · 태그 · 결제수단</span></div><div style="color:var(--sub)">›</div></div>
+   <div class="exp" style="cursor:pointer" onclick="go('budget')">
+     <div class="ic">📅</div><div class="t"><b>예산 관리</b><span>전체 · 공동 · 개인</span></div><div style="color:var(--sub)">›</div></div>
+   <div class="exp" style="cursor:pointer" onclick="go('fixed')">
+     <div class="ic">🧾</div><div class="t"><b>고정비</b><span>반복지출 관리</span></div><div style="color:var(--sub)">›</div></div>
+   <div class="exp" style="cursor:pointer" onclick="scopeTool()">
+     <div class="ic">🛠️</div><div class="t"><b>공동 / 개인 일괄 지정</b><span>이번 달 기록을 한 번에</span></div><div style="color:var(--sub)">›</div></div>
+ </div>`;
+};
+
+/* 거래 한 줄 (가계부용) */
+function ledRow(e,k){
+ const c=catOf(e.cat,e.t), w=expWho(e);
+ return `<div class="exp" onclick="expSheet('${e.id}','${k}')">
+  <div class="ic" style="background:${whoColor(w)}1f">${e.icon||c.e}</div>
+  <div class="t"><b>${esc(e.name||e.cat)}</b>
+    <span>${whoIcon(w)} ${esc(whoLabel(w))} · ${esc(e.cat)}${e.sub?' › '+esc(e.sub):''}${isTr(e)?'':' · '+esc(payLabel(e))}</span>
+    ${(e.tags||[]).length?`<span class="tgrow">${tagChips(e.tags)}</span>`:''}</div>
+  <div class="a" style="color:${tColor(e.t)}">${tSign(e.t)}${comma(e.a)}</div>
+  <div class="x" onclick="event.stopPropagation();delExp('${e.id}','${k}')">×</div></div>`;
+}
+/* 공동/개인 일괄 지정 (정산 화면에 있던 도구를 옮김) */
+function scopeTool(){
+ const y=cur.getFullYear(),m=cur.getMonth();
+ let n=0; monthExp(y,m,e=>{if(isOut(e))n++});
+ sheet(`<h3>${y}년 ${m+1}월 일괄 지정</h3>
+ <div style="text-align:center;font-size:12px;color:var(--sub);font-weight:700;margin:-8px 0 12px">지출 ${n}건</div>
+ <div style="font-size:11.5px;color:var(--sub);line-height:1.75;font-weight:600">
+   이번 달 지출을 한 번에 공동 또는 개인으로 바꿉니다. 수입과 이체는 바뀌지 않습니다.</div>
+ <div class="btns" style="margin-top:14px">
+   <button class="btn g" onclick="bulkScope('our')">전부 공동으로</button>
+   <button class="btn g" onclick="bulkScope('per')">전부 개인으로</button></div>
+ <div class="btns"><button class="btn p" onclick="close_()">닫기</button></div>`);
+}
+function bulkScope(v){
+ const y=cur.getFullYear(),m=cur.getMonth();let n=0;
+ monthExp(y,m,e=>{if(!isOut(e))return;e.sc=v;n++});
+ save();close_();render();toast(n+'건을 '+(v==='our'?'공동':'개인')+'지출로 바꿨어요');
+}
+
+
+/* ================= 가계부 고도화 2차 =================
+   · 거래 상세 읽기 화면
+   · 반복주기 : 매일 · 사용자 지정
+   · 예산 : 전체 / 공동 / 개인 기준으로 확장
+   ================================================== */
+
+/* ---------- 거래 상세 읽기 화면 ---------- */
+function findExp(id,k){
+ if(k&&S.days[k]){const e=(S.days[k].exp||[]).find(x=>x.id===id);if(e)return {e,k}}
+ let r=null; allExp((e,kk)=>{if(!r&&e.id===id)r={e,k:kk}}); return r;
+}
+function dRow(lb,val,color){
+ if(val===''||val==null)return '';
+ return `<div class="drow"><span>${esc(lb)}</span><b${color?` style="color:${color}"`:''}>${val}</b></div>`;
+}
+function expDetail(id,k){
+ const f=findExp(id,k); if(!f)return toast('기록을 찾지 못했어요');
+ const e=f.e; k=f.k;
+ const c=catOf(e.cat,e.t), w=expWho(e), d=parse(k);
+ const y=d.getFullYear(),m=d.getMonth();
+ /* 맥락 : 같은 카테고리 이달 합계 */
+ let cSum=0,cCnt=0;
+ monthExp(y,m,x=>{if(isOut(x)&&x.cat===e.cat){cSum+=x.a;cCnt++}});
+ /* 맥락 : 같은 장소 전체 */
+ let pSum=0,pCnt=0,pRows=[];
+ if(e.place&&e.place.name)allExp((x,kk)=>{
+  if(x.place&&x.place.name===e.place.name){pCnt++;if(isOut(x))pSum+=x.a;if(x.id!==e.id)pRows.push({x,kk})}});
+ pRows.sort((a,b)=>b.kk.localeCompare(a.kk)); pRows=pRows.slice(0,4);
+ const mSum=monthAgg(y,m,'all').out;
+
+ sheet(`
+ <div class="dhead" style="background:${tColor(e.t)}14">
+   <div class="dbadge" style="background:${tColor(e.t)}">${e.t==='in'?'💰 수입':e.t==='tr'?'🔁 이체':'💸 지출'}</div>
+   <div class="damt" style="color:${tColor(e.t)}">${tSign(e.t)}${comma(e.a)}원</div>
+   <div class="dsub">${esc(e.name||e.cat)}</div>
+ </div>
+ <div class="card" style="margin-top:12px">
+   ${dRow('날짜',esc(dateLabel(k)))}
+   ${dRow(e.t==='tr'?'이체 유형':'카테고리',`${c.e} ${esc(e.cat)}${e.sub?' › '+esc(e.sub):''}`)}
+   ${isTr(e)?'':dRow('결제수단',`${payIcon(e.pay.type)} ${esc(payLabel(e))}`)}
+   ${dRow(e.t==='in'?'받은 사람':isTr(e)?'계좌 주인':'결제자',esc(byName(e.by)))}
+   ${(isIn(e)||isTr(e))?'':dRow('구분',`${whoIcon(w)} ${scopeOf(e)==='our'?'공동지출':'개인지출'}`,whoColor(w))}
+   ${e.place&&e.place.name?dRow('장소','📍 '+esc(e.place.name)):''}
+   ${e.place&&e.place.address?dRow('주소',esc(e.place.address)):''}
+   ${e.memo?dRow('메모',esc(e.memo)):''}
+   ${dRow('기록',new Date(e.at||Date.now()).toLocaleString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}))}
+ </div>
+ ${(e.tags||[]).length?`<div class="fl">태그</div><div class="tgrow" style="margin:2px 2px 0">${tagChips(e.tags,1)}</div>`:''}
+
+ ${isOut(e)?`<div class="fl">이 지출이 차지하는 자리</div>
+ <div class="card">
+   <div class="prow" style="margin-top:0"><span>${m+1}월 ${esc(e.cat)} 합계</span><b>${comma(cSum)}원 · ${cCnt}건</b></div>
+   <div class="bar"><i style="width:${Math.min(100,cSum?e.a/cSum*100:0)}%;background:linear-gradient(90deg,#F472B6,#A78BFA)"></i></div>
+   <div class="cmp">이 건은 ${esc(e.cat)}의 ${cSum?(e.a/cSum*100).toFixed(1):0}%${mSum?` · ${m+1}월 전체 지출의 ${(e.a/mSum*100).toFixed(1)}%`:''}</div>
+ </div>`:''}
+
+ ${pCnt>1?`<div class="fl">📍 ${esc(e.place.name)} 기록</div>
+ <div class="card">
+   <div class="prow" style="margin-top:0"><span>방문</span><b>${pCnt}회 · ${comma(pSum)}원</b></div>
+   ${pRows.map(r=>`<div class="drow" style="cursor:pointer" onclick="expDetail('${r.x.id}','${r.kk}')">
+     <span>${r.kk.slice(5).replace('-','/')} ${esc(r.x.name||r.x.cat)}</span>
+     <b style="color:${tColor(r.x.t)}">${tSign(r.x.t)}${comma(r.x.a)}</b></div>`).join('')}
+ </div>`:''}
+
+ <div class="btns" style="margin-top:14px">
+   <button class="btn g" onclick="close_();setTimeout(()=>expSheet('${e.id}','${k}'),60)">수정</button>
+   <button class="btn p" onclick="close_()">닫기</button></div>
+ <div class="btns"><button class="btn g" style="color:var(--warn)"
+   onclick="if(confirm('이 기록을 지울까요?')){delExp('${e.id}','${k}');close_()}">삭제</button></div>`);
+}
+
+/* 목록에서 상세로 */
+function expRow(e,k){
+ const c=catOf(e.cat,e.t), sc=scopeOf(e), w=expWho(e);
+ return `<div class="exp" onclick="expDetail('${e.id}','${k}')">
+  <div class="ic">${e.icon||c.e}</div>
+  <div class="t"><b>${esc(e.name||e.cat)}</b>
+    <span>${esc(e.cat)}${e.sub?' › '+esc(e.sub):''}${isTr(e)?'':' · '+payIcon(e.pay.type)+esc(payLabel(e))} · ${esc(byName(e.by))}</span>
+    ${isTr(e)?`<span style="color:#7FC7E8">🔁 이체 · 집계 제외</span>`
+     :isIn(e)?'':`<span style="color:${sc==='our'?'var(--our)':'var(--sub)'}">${sc==='our'?'공동지출':'개인지출'}</span>`}
+    ${(e.tags||[]).length?`<span class="tgrow">${tagChips(e.tags)}</span>`:''}
+    ${e.place&&e.place.name?`<span style="color:#C58AA6">📍 ${esc(e.place.name)}</span>`:''}</div>
+  <div class="a" style="color:${tColor(e.t)}">${tSign(e.t)}${comma(e.a)}</div>
+  <div class="x" onclick="event.stopPropagation();delExp('${e.id}','${k}')">×</div></div>`;
+}
+function ledRow(e,k){
+ const c=catOf(e.cat,e.t), w=expWho(e);
+ return `<div class="exp" onclick="expDetail('${e.id}','${k}')">
+  <div class="ic" style="background:${whoColor(w)}1f">${e.icon||c.e}</div>
+  <div class="t"><b>${esc(e.name||e.cat)}</b>
+    <span>${whoIcon(w)} ${esc(whoLabel(w))} · ${esc(e.cat)}${e.sub?' › '+esc(e.sub):''}${isTr(e)?'':' · '+esc(payLabel(e))}</span>
+    ${(e.tags||[]).length?`<span class="tgrow">${tagChips(e.tags)}</span>`:''}</div>
+  <div class="a" style="color:${tColor(e.t)}">${tSign(e.t)}${comma(e.a)}</div>
+  <div class="x" onclick="event.stopPropagation();delExp('${e.id}','${k}')">×</div></div>`;
+}
+
+/* ---------- 반복주기 : 사용자 지정 ---------- */
+const RUNITS=[['day','일'],['week','주'],['month','개월']];
+function repLabel(o){
+ if(!o||!o.rep||o.rep==='none')return '';
+ if(o.rep==='custom'){const n=+o.every||1,u=(RUNITS.find(x=>x[0]===(o.unit||'day'))||RUNITS[0])[1];
+  return `${n}${u}마다`}
+ return (REPS.find(r=>r[0]===o.rep)||['','반복'])[1];
+}
+function repBox(name,o){
+ return `<div class="fl">반복</div>
+ <div class="opts">${REPS.map(r=>`<div class="opt sm ${o.rep===r[0]?'on':''}" onclick="${name}.rep='${r[0]}';draw${name}()">${r[1]}</div>`).join('')}</div>
+ ${o.rep==='custom'?`<div class="fl">주기</div>
+ <div style="display:flex;gap:7px;align-items:center">
+   <input class="in" type="number" min="1" max="365" style="flex:0 0 88px;text-align:center"
+     value="${+o.every||1}" onchange="${name}.every=Math.max(1,+this.value||1);draw${name}()">
+   <div class="opts" style="flex:1">${RUNITS.map(u=>`<div class="opt sm ${(o.unit||'day')===u[0]?'on':''}"
+     onclick="${name}.unit='${u[0]}';draw${name}()">${u[1]}마다</div>`).join('')}</div>
+ </div>
+ <div style="font-size:11px;color:var(--sub);font-weight:700;margin:6px 2px 0">${esc(repLabel(o))} 반복됩니다</div>`:''}`;
+}
+const monDiff=(a,b)=>(b.getFullYear()-a.getFullYear())*12+(b.getMonth()-a.getMonth());
+function evOccurs(ev,k){
+ if(!ev||!ev.date||k<ev.date)return false;
+ const r=ev.rep||'none';
+ if(r==='none')return k===ev.date;
+ if(ev.until&&k>ev.until)return false;
+ const a=parse(ev.date),b=parse(k);
+ const dd=Math.round((b-a)/86400000);
+ if(r==='day')return true;
+ if(r==='week')return a.getDay()===b.getDay();
+ if(r==='biweek')return a.getDay()===b.getDay()&&dd%14===0;
+ if(r==='month')return a.getDate()===b.getDate();
+ if(r==='year')return a.getMonth()===b.getMonth()&&a.getDate()===b.getDate();
+ if(r==='custom'){
+  const n=Math.max(1,+ev.every||1), u=ev.unit||'day';
+  if(u==='day')return dd%n===0;
+  if(u==='week')return a.getDay()===b.getDay()&&(dd/7)%n===0;
+  if(u==='month')return a.getDate()===b.getDate()&&monDiff(a,b)%n===0;
+ }
+ return false;
+}
+function nextRep(k,r,o){
+ const d=parse(k);
+ if(r==='day')d.setDate(d.getDate()+1);
+ else if(r==='week')d.setDate(d.getDate()+7);
+ else if(r==='biweek')d.setDate(d.getDate()+14);
+ else if(r==='month')d.setMonth(d.getMonth()+1);
+ else if(r==='year')d.setFullYear(d.getFullYear()+1);
+ else if(r==='custom'){
+  const n=Math.max(1,+((o||{}).every)||1), u=((o||{}).unit)||'day';
+  if(u==='day')d.setDate(d.getDate()+n);
+  else if(u==='week')d.setDate(d.getDate()+7*n);
+  else d.setMonth(d.getMonth()+n);
+ }
+ return key(d);
+}
+
+/* ---------- 예산 : 전체 / 공동 / 개인 ---------- */
+function budWho(){S.budget.who=S.budget.who||{our:0,me:0,you:0};return S.budget.who}
+function budLimit(who){
+ if(!who||who==='all')return +S.budget.monthly||0;
+ return +budWho()[who]||0;
+}
+function budgetState(y,m,who){
+ const b=S.budget||{};
+ const W=who===undefined?ledWho:who;
+ const out=monthOut(y,m,null,W);
+ const total=budLimit(W);
+ const cats=Object.keys(b.cats||{}).map(c=>({c,limit:b.cats[c],used:monthOut(y,m,c,W)}))
+  .filter(x=>x.limit>0);
+ return {who:W,out,total,cats,pct:total?out/total*100:0,left:Math.max(0,total-out)};
+}
+let budWhoTab='all';
+function setBudWho(w){budWhoTab=w;render()}
+function budBar(){
+ return `<div class="whobar">
+  ${[['all','전체','📊'],['our','공동','❤️'],['me',S.names.me,'👩'],['you',S.names.you,'👨']].map(w=>
+   `<div class="wb ${budWhoTab===w[0]?'on':''}" style="${budWhoTab===w[0]&&w[0]!=='all'?`background:${whoColor(w[0])};border-color:${whoColor(w[0])}`:''}"
+     onclick="setBudWho('${w[0]}')">${w[2]} ${esc(w[1])}</div>`).join('')}
+ </div>`;
+}
+function setBudLimit(who,el){
+ const v=+el.value.replace(/[^0-9]/g,'')||0;
+ if(who==='all')S.budget.monthly=v; else budWho()[who]=v;
+ el.value=v?comma(v):''; save();
+}
+V.budget=()=>{
+ const y=cur.getFullYear(),m=cur.getMonth();
+ const W=budWhoTab;
+ const b=budgetState(y,m,W);
+ const lim=budLimit(W);
+ const sum=['our','me','you'].reduce((a,w)=>a+budLimit(w),0);
+ const all=+S.budget.monthly||0;
+ return `<div class="mrow"><div class="m" style="font-size:16px">${y}년 ${m+1}월 예산</div>
+   <div class="nav"><button onclick="mv(-1)">‹</button><button onclick="mv(1)">›</button></div></div>
+ ${budBar()}
+ <div class="card">
+   <div class="fl" style="margin-top:0">${W==='all'?'이번 달 전체 예산':`${whoIcon(W)} ${esc(whoLabel(W))} 예산`} (원)</div>
+   <input class="in" inputmode="numeric" value="${lim?comma(lim):''}" placeholder="예: 1,500,000"
+     oninput="setBudLimit('${W}',this)" onchange="safeRender()">
+   ${lim?`<div class="pg" style="margin-top:12px"><i class="${b.pct>100?'warn':''}" style="width:${Math.min(100,b.pct)}%"></i></div>
+   <div class="prow" style="margin-top:8px"><span>사용 ${comma(b.out)}원</span>
+     <span style="color:${b.pct>100?'var(--warn)':'var(--ok)'}">${b.pct>100?`${comma(b.out-b.total)}원 초과`:`잔액 ${comma(b.left)}원`}</span></div>`
+   :`<div class="cmp">${W==='all'?'전체 예산을 정하면 남은 금액을 알려드려요':`${esc(whoLabel(W))} 몫만 따로 정할 수 있어요. 비워두면 이 기준은 표시하지 않습니다.`}</div>`}
+   ${W==='all'?`<div class="fl">경고 기준 (%)</div>
+   <div class="opts">${[70,80,90,100].map(p=>`<div class="opt sm ${(S.budget.alertPct||80)===p?'on':''}" onclick="S.budget.alertPct=${p};save();render()">${p}%</div>`).join('')}</div>`:''}
+ </div>
+
+ ${W==='all'&&sum?`<div class="card">
+   <div class="prow" style="margin-top:0"><span>공동 + 개인 예산 합</span>
+     <b style="color:${all&&sum>all?'var(--warn)':'inherit'}">${comma(sum)}원</b></div>
+   ${['our','me','you'].map(w=>budLimit(w)?`<div class="drow"><span>${whoIcon(w)} ${esc(whoLabel(w))}</span>
+     <b style="color:${whoColor(w)}">${comma(budLimit(w))}원</b></div>`:'').join('')}
+   ${all?`<div class="cmp">${sum>all?`<b style="color:var(--warn)">전체 예산보다 ${comma(sum-all)}원 많아요</b>`
+     :sum<all?`전체 예산 안에 ${comma(all-sum)}원 여유가 있어요`:'전체 예산과 딱 맞아요'}</div>`:''}
+ </div>`:''}
+
+ <div class="sec">기준별 사용 현황</div>
+ <div class="card">
+   ${['our','me','you'].map(w=>{const s=budgetState(y,m,w),L=budLimit(w);
+     const p=L?s.out/L*100:0;
+     return `<div style="padding:8px 0;border-bottom:1px dashed var(--line)">
+       <div class="prow" style="margin-top:0"><span>${whoIcon(w)} ${esc(whoLabel(w))}</span>
+         <span>${comma(s.out)}원${L?` / ${comma(L)}원`:''}</span></div>
+       ${L?`<div class="pg" style="height:7px"><i class="${p>100?'warn':''}" style="width:${Math.min(100,p)}%"></i></div>
+         <div class="cmp" style="margin-top:4px">${p>100?`<b style="color:var(--warn)">${comma(s.out-L)}원 초과</b>`:`남은 ${comma(L-s.out)}원 · ${Math.round(p)}%`}</div>`
+       :`<div class="cmp" style="margin-top:4px">예산 미설정</div>`}</div>`}).join('')}
+ </div>
+
+ <div class="sec">카테고리별 예산 <span class="more">${W==='all'?'전체 기준':whoIcon(W)+' '+esc(whoLabel(W))+' 사용액'}</span></div>
+ <div class="card">
+   ${S.cats.map(c=>{const l2=(S.budget.cats||{})[c.n]||0,used=monthOut(y,m,c.n,W);
+    const p=l2?used/l2*100:0;
+    return `<div style="padding:9px 0;border-bottom:1px dashed var(--line)">
+      <div class="prow" style="margin-top:0"><span>${c.e} ${esc(c.n)}</span>
+        <span style="display:flex;align-items:center;gap:6px">
+          <input class="in" style="width:110px;padding:7px 9px;font-size:12.5px;text-align:right"
+            inputmode="numeric" placeholder="0" value="${l2?comma(l2):''}"
+            oninput="setCatBudget('${esc(c.n)}',this)"></span></div>
+      ${l2?`<div class="pg" style="height:7px"><i class="${p>100?'warn':''}" style="width:${Math.min(100,p)}%"></i></div>
+        <div class="cmp" style="margin-top:4px">${comma(used)} / ${comma(l2)}원 · ${Math.round(p)}%</div>`
+      :`<div class="cmp" style="margin-top:4px">사용 ${comma(used)}원</div>`}</div>`}).join('')}
+   <div class="cmp">카테고리 한도는 전체 기준 하나로 관리하고, 사용액만 위에서 고른 기준으로 보여드려요.</div>
+ </div>`;
+};
+
+
+/* ================= 가계부 고도화 3차 =================
+   · 카테고리 자동분류 + 학습
+   · 고급 필터 (거래 검색)
+   · 월별 추이를 가계부로 이동
+   · 엑셀에 기준(공동/개인) 컬럼 추가
+   ================================================== */
+
+/* ---------- 1. 카테고리 자동분류 ---------- */
+const CATRULES=[
+ [/배달의민족|배민|요기요|쿠팡이츠|배달/i,['식비','배달']],
+ [/이마트|홈플러스|롯데마트|코스트코|마트|하나로|슈퍼|편의점|CU |GS25|세븐일레븐|이마트24|장보기/i,['식비','장보기']],
+ [/스타벅스|투썸|이디야|메가커피|빽다방|컴포즈|공차|커피|카페|coffee|cafe|아메리카노|라떼/i,['카페','커피']],
+ [/베이커리|파리바게뜨|뚜레쥬르|빵집|케이크|도넛|디저트|아이스크림|배스킨/i,['카페','디저트']],
+ [/김밥|국밥|칼국수|분식|떡볶이|백반|한식|식당|맛집|고기|삼겹|치킨|피자|버거|햄버거|초밥|스시|파스타|중국집|짜장|짬뽕|쌀국수|마라|덮밥|돈까스|장어|뷔페|점심|저녁|회식/i,['식비','외식']],
+ [/지하철|버스|티머니|교통카드|KTX|SRT|고속버스|기차/i,['교통','대중교통']],
+ [/택시|카카오T|타다|우버/i,['교통','택시']],
+ [/주유|SK에너지|GS칼텍스|에쓰오일|현대오일|기름값/i,['교통','주유']],
+ [/주차|하이패스|톨게이트|통행료/i,['교통','주차']],
+ [/월세|전세|보증금/i,['주거·통신','월세']],
+ [/관리비|관리사무소|아파트관리/i,['주거·통신','관리비']],
+ [/전기요금|한전|수도요금|도시가스|가스요금|상하수도|공과금/i,['주거·통신','공과금']],
+ [/SKT|KT|LGU|엘지유플러스|알뜰폰|통신요금|휴대폰요금|요금제|인터넷요금/i,['주거·통신','통신비']],
+ [/넷플릭스|왓챠|티빙|웨이브|디즈니|유튜브프리미엄|스포티파이|멜론|지니뮤직|구독|iCloud|chatgpt/i,['주거·통신','구독']],
+ [/올리브영|화장품|뷰티|미용실|헤어|네일|에스테틱/i,['쇼핑','뷰티']],
+ [/다이소|생활용품|주방용품|청소|세제|살림/i,['쇼핑','생활용품']],
+ [/무신사|유니클로|자라|의류|옷|신발|가방|패션/i,['쇼핑','의류']],
+ [/가전|전자제품|하이마트|노트북|휴대폰기기/i,['쇼핑','가전']],
+ [/쿠팡|11번가|지마켓|옥션|SSG|알리|테무|백화점|아울렛|당근/i,['쇼핑','']],
+ [/약국|처방|조제/i,['건강','약국']],
+ [/병원|의원|치과|한의원|정형외과|피부과|내과|이비인후과|안과|검진|진료/i,['건강','병원']],
+ [/헬스|피트니스|요가|필라테스|PT|수영장|짐/i,['건강','운동']],
+ [/영양제|비타민|유산균|홍삼|프로틴/i,['건강','영양제']],
+ [/영화|CGV|메가박스|롯데시네마/i,['데이트','영화']],
+ [/전시|미술관|박물관|팝업/i,['데이트','전시']],
+ [/공연|콘서트|뮤지컬|연극/i,['데이트','공연']],
+ [/여행|호텔|펜션|리조트|숙박|에어비앤비|항공|비행기/i,['데이트','여행']],
+ [/놀이공원|에버랜드|롯데월드|노래방|PC방|볼링|당구|캠핑|나들이|공원/i,['데이트','나들이']],
+ [/축의|결혼식/i,['경조사·선물','축의금']],
+ [/부의|조의|장례/i,['경조사·선물','부의금']],
+ [/선물|기프티콘|생일|기념일|용돈/i,['경조사·선물','선물']],
+ [/보험|적금|예금|펀드|주식|증권|연금|대출|이자|세금/i,['기타','']]
+];
+function catNorm(s){return String(s||'').toLowerCase().replace(/[\s\-_·.,()[\]]/g,'')}
+function catKeys(c){
+ const K=[];
+ const n=catNorm(c.text);
+ if(n.length>=2)K.push('nm:'+n);
+ if(c.place&&c.place.name)K.push('pl:'+catNorm(c.place.name));
+ if(c.pay&&c.pay.issuer)K.push('py:'+catNorm(c.pay.issuer));
+ return K;
+}
+function learnCat(c,cat,sub){
+ if(!cat)return;
+ if(!S.catStats)S.catStats={};
+ const v=cat+'||'+(sub||'');
+ catKeys(c).forEach(k=>{const m=S.catStats[k]=S.catStats[k]||{};m[v]=(m[v]||0)+1});
+}
+/* 반환 : {cat,sub,why,score} | null */
+function guessCat(c){
+ if(!c)return null;
+ const sc={},why={};
+ const add=(cat,sub,w,rz)=>{
+  if(!cat)return;
+  const v=cat+'||'+(sub||'');
+  sc[v]=(sc[v]||0)+w; if(!why[v])why[v]=rz;
+ };
+ /* 학습 우선 */
+ const stats=S.catStats||{};
+ catKeys(c).forEach(k=>{
+  const m=stats[k]; if(!m)return;
+  const tot=Object.values(m).reduce((a,b)=>a+b,0)||1;
+  const rz=k.slice(0,2)==='nm'?'같은 내용을 이렇게 넣으셨어요'
+        :k.slice(0,2)==='pl'?'이 장소에서 늘 쓰던 분류':'이 카드로 자주 쓰던 분류';
+  Object.keys(m).forEach(v=>{const p=v.split('||');
+   add(p[0],p[1],4*(m[v]/tot)+Math.min(1.6,m[v]*0.25),rz)});
+ });
+ /* 규칙 */
+ const txt=[c.text,c.place&&c.place.name].filter(Boolean).join(' ');
+ if(txt)CATRULES.forEach(r=>{if(r[0].test(txt))add(r[1][0],r[1][1],2,'이름으로 알아봤어요')});
+ /* 존재하는 카테고리만 */
+ const names=S.cats.map(x=>x.n);
+ const L=Object.keys(sc).filter(v=>names.includes(v.split('||')[0]))
+  .sort((a,b)=>sc[b]-sc[a]);
+ if(!L.length)return null;
+ const p=L[0].split('||');
+ const subs=(catOf(p[0],'out').subs)||[];
+ return {cat:p[0],sub:subs.includes(p[1])?p[1]:'',why:why[L[0]],score:sc[L[0]]};
+}
+/* 입력창 안내 줄 */
+function catSugRow(){
+ if(!EX||EX.t!=='out')return '';
+ const g=guessCat({text:EX.name,place:EX.place,pay:EX.pay});
+ if(!g)return '';
+ if(EX._auto&&EX.cat===g.cat)
+  return `<div class="csug ok">자동 분류 · ${catOf(g.cat,'out').e} ${esc(g.cat)}${g.sub?' › '+esc(g.sub):''}
+   <b onclick="undoAutoCat()">되돌리기</b><span>${esc(g.why)}</span></div>`;
+ if(g.cat===EX.cat&&(!g.sub||g.sub===EX.sub))return '';
+ return `<div class="csug">${catOf(g.cat,'out').e} ${esc(g.cat)}${g.sub?' › '+esc(g.sub):''} 아닌가요?
+  <b onclick="applyGuess('${esc(g.cat)}','${esc(g.sub||'')}')">이걸로</b><span>${esc(g.why)}</span></div>`;
+}
+function applyGuess(cat,sub){
+ EX.cat=cat; EX.sub=sub||''; EX.icon=catOf(cat,'out').e; EX._auto=false; EX._touched=true;
+ if(document.getElementById('catbox'))catRedraw(); else drawEX();
+}
+function undoAutoCat(){
+ EX.cat=EX._auto0||S.cats[0].n; EX.sub=''; EX.icon=catOf(EX.cat,'out').e;
+ EX._auto=false; EX._touched=true;
+ if(document.getElementById('catbox'))catRedraw(); else drawEX();
+}
+/* 이름/장소가 바뀌면 아직 손대지 않은 카테고리를 자동으로 맞춰줍니다 */
+function autoCat(){
+ if(!EX||EX.t!=='out'||EX._touched)return false;
+ const g=guessCat({text:EX.name,place:EX.place,pay:EX.pay});
+ if(!g||g.score<1.9||g.cat===EX.cat)return false;
+ if(!EX._auto)EX._auto0=EX.cat;
+ EX.cat=g.cat; EX.sub=g.sub||''; EX.icon=catOf(g.cat,'out').e; EX._auto=true;
+ return true;
+}
+function catBoxHTML(){
+ const inc=EX.t==='in', trf=EX.t==='tr';
+ const CL=catsFor(EX.t), c=catOf(EX.cat,EX.t), subs=(c.subs||[]);
+ return `<div class="opts">${CL.map((x,i2)=>`<div class="opt ${x.n===EX.cat?'on':''}" onclick="pickCat(${i2})">${x.e} ${esc(x.n)}</div>`).join('')}
+    ${trf?'':`<div class="opt sm" style="border-style:dashed" onclick="catTab='${inc?'in':'out'}';go('cats');close_()">＋ 편집</div>`}</div>
+  ${subs.length?`<div class="opts" style="margin-top:7px">
+    ${subs.map((sb,k2)=>`<div class="opt sm ${EX.sub===sb?'on':''}" onclick="pickSub(${k2})">${esc(sb)}</div>`).join('')}</div>`:''}`;
+}
+function catRedraw(){
+ const b=document.getElementById('catbox'); if(b)b.innerHTML=catBoxHTML();
+ const r=document.getElementById('csugrow'); if(r)r.innerHTML=catSugRow();
+}
+/* 입력 중에는 화면을 다시 그리지 않고 카테고리 칸만 갱신합니다 (커서 유지) */
+function exName(v){
+ EX.name=v;
+ try{autoCat()}catch(_){}
+ catRedraw();
+ try{sugDraw()}catch(_){}
+}
+
+/* ---------- 2. 고급 필터 (거래 검색) ---------- */
+const defLF=()=>({q:'',t:'all',who:'all',cats:[],pays:[],tags:[],min:0,max:0,
+ from:'',to:'',place:'',sort:'new'});
+let LF=defLF(), LFon=false;
+function lfCount(){
+ let n=0;
+ if(LF.q)n++; if(LF.t!=='all')n++; if(LF.who!=='all')n++;
+ n+=LF.cats.length?1:0; n+=LF.pays.length?1:0; n+=LF.tags.length?1:0;
+ if(LF.min||LF.max)n++; if(LF.from||LF.to)n++; if(LF.place)n++;
+ return n;
+}
+function lfMatch(e,k){
+ if(LF.t!=='all'&&(LF.t==='out'?!isOut(e):LF.t==='in'?!isIn(e):!isTr(e)))return false;
+ if(LF.who!=='all'&&expWho(e)!==LF.who)return false;
+ if(LF.cats.length&&!LF.cats.includes(e.cat))return false;
+ if(LF.pays.length&&!LF.pays.includes((e.pay||{}).type))return false;
+ if(LF.tags.length&&!LF.tags.every(t=>(e.tags||[]).includes(t)))return false;
+ if(LF.min&&e.a<LF.min)return false;
+ if(LF.max&&e.a>LF.max)return false;
+ if(LF.from&&k<LF.from)return false;
+ if(LF.to&&k>LF.to)return false;
+ if(LF.place&&!((e.place&&e.place.name)||'').includes(LF.place))return false;
+ if(LF.q){const q=LF.q.toLowerCase();
+  const hay=[e.name,e.cat,e.sub,e.memo,e.place&&e.place.name,payLabel(e),
+   (e.tags||[]).map(t=>tagName(t)).join(' ')].filter(Boolean).join(' ').toLowerCase();
+  if(hay.indexOf(q)<0)return false}
+ return true;
+}
+function lfRows(){
+ const R=[]; allExp((e,k)=>{if(lfMatch(e,k))R.push({e,k})});
+ R.sort((a,b)=>LF.sort==='old'?a.k.localeCompare(b.k)
+  :LF.sort==='big'?b.e.a-a.e.a:LF.sort==='small'?a.e.a-b.e.a:b.k.localeCompare(a.k));
+ return R;
+}
+function lfSheet(){
+ const pays=[['card','카드'],['cash','현금'],['point','페이·포인트']];
+ sheet(`<h3>거래 검색</h3>
+ <div class="fl" style="margin-top:0">검색어</div>
+ <input class="in" id="lfq" placeholder="내용 · 메모 · 장소 · 태그" value="${esc(LF.q)}" oninput="LF.q=this.value">
+ <div class="fl">유형</div>
+ <div class="seg">${[['all','전체'],['out','지출'],['in','수입'],['tr','이체']].map(t=>
+   `<div class="sg ${LF.t===t[0]?'on':''}" onclick="LF.t='${t[0]}';lfSheet()">${t[1]}</div>`).join('')}</div>
+ <div class="fl">기준</div>
+ <div class="opts">${[['all','전체','📊'],['our','공동','❤️'],['me',S.names.me,'👩'],['you',S.names.you,'👨']].map(w=>
+   `<div class="opt sm ${LF.who===w[0]?'on':''}" onclick="LF.who='${w[0]}';lfSheet()">${w[2]} ${esc(w[1])}</div>`).join('')}</div>
+ <div class="fl">카테고리 ${LF.cats.length?`<span class="more" onclick="LF.cats=[];lfSheet()">해제</span>`:''}</div>
+ <div class="opts">${S.cats.map(c=>`<div class="opt sm ${LF.cats.includes(c.n)?'on':''}"
+   onclick="lfTog('cats','${esc(c.n)}')">${c.e} ${esc(c.n)}</div>`).join('')}</div>
+ <div class="fl">결제수단</div>
+ <div class="opts">${pays.map(p=>`<div class="opt sm ${LF.pays.includes(p[0])?'on':''}"
+   onclick="lfTog('pays','${p[0]}')">${p[1]}</div>`).join('')}</div>
+ ${(S.tags||[]).length?`<div class="fl">태그</div>
+ <div class="opts">${S.tags.slice(0,24).map(t=>`<div class="opt sm ${LF.tags.includes(t.id)?'on':''}"
+   onclick="lfTog('tags','${t.id}')">#${esc(t.n)}</div>`).join('')}</div>`:''}
+ <div class="fl">금액 범위 (원)</div>
+ <div style="display:flex;gap:7px;align-items:center">
+   <input class="in" inputmode="numeric" placeholder="최소" style="flex:1" value="${LF.min?comma(LF.min):''}"
+     oninput="LF.min=+this.value.replace(/[^0-9]/g,'')||0;this.value=LF.min?comma(LF.min):''">
+   <span style="color:var(--sub);font-weight:800">~</span>
+   <input class="in" inputmode="numeric" placeholder="최대" style="flex:1" value="${LF.max?comma(LF.max):''}"
+     oninput="LF.max=+this.value.replace(/[^0-9]/g,'')||0;this.value=LF.max?comma(LF.max):''"></div>
+ <div class="fl">기간</div>
+ <div style="display:flex;gap:7px;align-items:center">
+   <input class="in" type="date" style="flex:1" value="${LF.from}" onchange="LF.from=this.value">
+   <span style="color:var(--sub);font-weight:800">~</span>
+   <input class="in" type="date" style="flex:1" value="${LF.to}" onchange="LF.to=this.value"></div>
+ <div class="opts" style="margin-top:8px">${[['','전체 기간'],['m','이번 달'],['3m','최근 3개월'],['y','올해']].map(r=>
+   `<div class="opt sm" onclick="lfRange('${r[0]}')">${r[1]}</div>`).join('')}</div>
+ <div class="fl">정렬</div>
+ <div class="opts">${[['new','최신순'],['old','오래된순'],['big','금액 큰 순'],['small','금액 작은 순']].map(o=>
+   `<div class="opt sm ${LF.sort===o[0]?'on':''}" onclick="LF.sort='${o[0]}';lfSheet()">${o[1]}</div>`).join('')}</div>
+ <div class="btns" style="margin-top:14px">
+   <button class="btn g" onclick="LF=defLF();lfSheet()">조건 비우기</button>
+   <button class="btn p" onclick="lfGo()">검색</button></div>`);
+ setTimeout(()=>{const a=document.getElementById('lfq');if(a){a.focus();a.selectionStart=a.value.length}},130);
+}
+function lfTog(f,v){
+ const A=LF[f], i=A.indexOf(v);
+ if(i>=0)A.splice(i,1); else A.push(v);
+ lfSheet();
+}
+function lfRange(r){
+ const n=new Date();
+ if(!r){LF.from='';LF.to=''}
+ else if(r==='m'){LF.from=key(new Date(n.getFullYear(),n.getMonth(),1));LF.to=key(new Date(n.getFullYear(),n.getMonth()+1,0))}
+ else if(r==='3m'){LF.from=key(new Date(n.getFullYear(),n.getMonth()-2,1));LF.to=today()}
+ else {LF.from=`${n.getFullYear()}-01-01`;LF.to=`${n.getFullYear()}-12-31`}
+ lfSheet();
+}
+function lfGo(){LFon=true;close_();go('lfind')}
+V.lfind=()=>{
+ const R=lfRows();
+ let out=0,inc=0,tr=0;const byCat={};
+ R.forEach(({e})=>{if(isTr(e)){tr+=e.a;return}
+  if(isIn(e)){inc+=e.a;return}
+  out+=e.a;byCat[e.cat]=(byCat[e.cat]||0)+e.a});
+ const cs=Object.entries(byCat).sort((a,b)=>b[1]-a[1]).slice(0,6);
+ const tot=cs.reduce((a,b)=>a+b[1],0)||1;
+ const chips=[];
+ if(LF.q)chips.push('“'+LF.q+'”');
+ if(LF.t!=='all')chips.push(LF.t==='out'?'지출':LF.t==='in'?'수입':'이체');
+ if(LF.who!=='all')chips.push(whoIcon(LF.who)+' '+whoLabel(LF.who));
+ LF.cats.forEach(c=>chips.push(c));
+ LF.pays.forEach(p=>chips.push(p==='card'?'카드':p==='cash'?'현금':'페이·포인트'));
+ LF.tags.forEach(t=>chips.push('#'+tagName(t)));
+ if(LF.min||LF.max)chips.push(`${LF.min?comma(LF.min):'0'}~${LF.max?comma(LF.max):'∞'}원`);
+ if(LF.from||LF.to)chips.push(`${LF.from||'처음'} ~ ${LF.to||'끝'}`);
+ return `
+ <div class="mrow"><div class="m" style="font-size:16px">검색 결과 ${comma(R.length)}건</div>
+   <div class="nav"><button onclick="lfSheet()" style="width:auto;padding:0 11px;font-weight:800">조건 바꾸기</button></div></div>
+ ${chips.length?`<div class="tgrow" style="margin:0 2px 10px">${chips.map(c=>
+   `<span class="tg" style="background:#fff;border:1.3px solid var(--line);color:var(--sub)">${esc(c)}</span>`).join('')}</div>`
+  :`<div class="cmp" style="margin:0 2px 10px">조건 없이 전체를 보고 있어요</div>`}
+ <div class="bs">
+   <div class="b"><span>지출</span><b style="color:var(--warn)">${won(out)}</b></div>
+   <div class="b"><span>수입</span><b style="color:var(--ok)">${won(inc)}</b></div>
+   <div class="b"><span>건수</span><b>${comma(R.length)}</b></div>
+ </div>
+ ${tr?`<div style="text-align:center;font-size:11px;color:var(--sub);font-weight:700;margin:-4px 0 8px">🔁 이체 ${comma(tr)}원 포함 (집계 제외)</div>`:''}
+ ${out?`<div class="card">
+   <div class="prow" style="margin-top:0"><span>건당 평균</span><b>${comma(Math.round(out/Math.max(1,R.filter(r=>isOut(r.e)).length)))}원</b></div>
+   ${cs.map((c,i)=>`<div class="prow"><span>${catOf(c[0],'out').e} ${esc(c[0])}</span><span>${comma(c[1])}원</span></div>
+     <div class="bar"><i style="width:${c[1]/tot*100}%;background:${COL[i%9]}"></i></div>`).join('')}
+ </div>`:''}
+ <div class="card">${R.length?R.slice(0,300).map(r=>ledRow(r.e,r.k)).join('')
+  :`<div class="empty">조건에 맞는 기록이 없어요</div>`}
+  ${R.length>300?`<div class="cmp">최근 300건만 표시했어요. 조건을 좁히거나 엑셀로 내보내세요.</div>`:''}</div>
+ <div class="card" style="padding:6px 14px">
+   <div class="exp" style="cursor:pointer" onclick="go('xls')">
+     <div class="ic">📊</div><div class="t"><b>엑셀로 내보내기</b><span>기간·태그 조건으로 저장</span></div>
+     <div style="color:var(--sub)">›</div></div>
+ </div>`;
+};
+
+/* ---------- 3. 월별 추이 (가계부) ---------- */
+function trendCard(){
+ const y=cur.getFullYear(), m=cur.getMonth();
+ const arr=Array.from({length:12},(_,i)=>monthOut(y,i));
+ const mx=Math.max(1,...arr), sum=arr.reduce((a,b)=>a+b,0);
+ const done=arr.filter((v,i)=>y<new Date().getFullYear()||i<=new Date().getMonth()).length||1;
+ return `<div class="sec">월별 지출 추이 (${y})
+   ${ledWho!=='all'?`<span class="more">${whoIcon(ledWho)} ${esc(whoLabel(ledWho))} 기준</span>`:''}</div>
+ <div class="card">
+   <div class="trend" style="height:84px">${arr.map((v,i)=>
+     `<i class="${i===m?'hi':''}" style="height:${v/mx*100}%" onclick="cur=new Date(${y},${i},1);render()"></i>`).join('')}</div>
+   <div class="tlab">${Array.from({length:12},(_,i)=>`<span class="${i===m?'on':''}">${i+1}</span>`).join('')}</div>
+   <div class="prow" style="margin-top:8px"><span>연 합계</span><b>${comma(sum)}원</b></div>
+   <div class="prow"><span>월 평균</span><b>${comma(Math.round(sum/done))}원</b></div>
+   <div class="cmp">가장 많이 쓴 달 ${arr.indexOf(mx)+1}월 · ${comma(mx)}원</div>
+ </div>`;
+}
+
 /* ================= 빠른 추가 ================= */
 function quickAdd(){
  sheet(`<h3>무엇을 기록할까요</h3>
@@ -5168,7 +5938,7 @@ function usePlace(i){
  if(PLTARGET==='bk'){BK.place=PRES[i];PLTARGET='ex';drawBK();return}
  if(PLTARGET==='home'){const p=PRES[i];S.loc.home={name:p.name,address:p.address||'',lat:p.lat,lng:p.lng};
   PLTARGET='ex';save();close_();render();toast('집 위치를 등록했어요');return}
- EX.place=PRES[i];drawEX();
+ EX.place=PRES[i];try{autoCat()}catch(_){}drawEX();
 }
 
 
@@ -5199,7 +5969,7 @@ const TITLE=()=>({
  noti:['알림센터','오늘 확인할 것'], anniv:['기념일 · D-Day','다가오는 날'],
  life:['생활 관리','할 일 · 장보기 · 메모'], goals:['공동 목표','함께 모으기'],
  trip:['여행 기록','기간별 자동 정리'], budget:['예산 관리','전체 · 카테고리별'],
- fixed:['고정비','반복지출 관리'], settle:['정산','공동지출 나누기'],
+ fixed:['고정비','반복지출 관리'], lfind:['거래 검색','조건으로 찾기'],
  album:['추억 모아보기','월별 · 장소별 · 태그별'], stats:['OUR DATA','우리의 기록'],
  bucket:['버킷리스트','함께 이루고 싶은 것'],
  body:['인바디 기록','체중 · 골격근량 · 체지방량'], loc:['위치 공유','귀가 · 안심 알림'],
@@ -5239,7 +6009,7 @@ function render(){
  document.getElementById('bk').style.display=PARENT[view]?'grid':'none';
  document.querySelector('.hd').classList.toggle('hide-t', wide&&(view==='cal'||view==='home'||view==='stats'));
  document.getElementById('fab').style.display=
-  ['home','cal','list','led','map','life','goals','trip','album','stats','settle','fixed','bucket','body'].includes(view)?'grid':'none';
+  ['home','cal','list','led','map','life','goals','trip','album','stats','fixed','bucket','body','lfind'].includes(view)?'grid':'none';
  const w=document.getElementById('who');
  w.innerHTML=`<span class="av" style="background:var(--${S.profile})">${esc(S.names[S.profile][0])}</span>`;
  const act=PARENT[view]||view;
@@ -5269,7 +6039,7 @@ document.getElementById('bk').onclick=()=>go(PARENT[view]||'cal');
 document.getElementById('sbtn').onclick=()=>{q='';go('search')};
 document.getElementById('who').onclick=()=>{S.profile=OTHER(S.profile);save();render();toast(S.names[S.profile]+' 으로 전환')};
 document.getElementById('fab').onclick=()=>{
- if(view==='led'||view==='map'||view==='settle'||view==='fixed'){selDate=key(new Date());expSheet();return}
+ if(view==='led'||view==='map'||view==='fixed'||view==='lfind'){selDate=key(new Date());expSheet();return}
  if(view==='life'){lifeTab==='shop'?(document.getElementById('shq')||{focus(){}}).focus():lifeTab==='memo'?mmSheet():tkSheet();return}
  if(view==='goals'){glSheet();return}
  if(view==='bucket'){bkSheet();return}
@@ -5383,7 +6153,7 @@ function removeRecord(r){
  else if(r.kind==='places')d.places=[];
 }
 const SETKEYS=['names','since','checkItems','cats','incomeCats','pay','budget','favPlaces',
- 'events','anniv','tasks','shop','goals','memos','trips','fixed','bucket','body','loc','placeMeta','photoMeta','tags','tagStats','settle','storage','imgq','gphotos'];
+ 'events','anniv','tasks','shop','goals','memos','trips','fixed','bucket','body','loc','placeMeta','photoMeta','tags','tagStats','catStats','storage','imgq','gphotos'];
 function pickSettings(){const o={};SETKEYS.forEach(k=>o[k]=S[k]);return o}
 function applySettings(o){if(!o)return;SETKEYS.forEach(k=>{if(o[k]!==undefined)S[k]=o[k]})}
 
@@ -5583,6 +6353,95 @@ async function doJoinSpace(){
  syncNow(true);
 }
 
+
+/* ================= 뒤로가기 (브라우저 · 안드로이드 제스처) =================
+   지금까지는 방문 기록을 전혀 남기지 않아서 뒤로가기를 누르면 앱이 그대로 닫혔습니다.
+   화면을 옮길 때마다 방문 기록을 남기고 뒤로가기를 가로채
+   시트 닫기 → 이전 화면 → 홈 순으로 되돌아가게 합니다.
+   홈에서 뒤로가기를 두 번 누르면 그때 닫힙니다. */
+
+let NAVon=false, NAVi=0, NAVexit=0;
+const sheetOpen=()=>{const m=document.getElementById('mk');return !!(m&&m.classList.contains('on'))};
+function navState(){
+ return {app:1,i:NAVi,view:view,day:selDate,
+  tag:(typeof openTagId!=='undefined'?openTagId:''),sheet:sheetOpen()?1:0};
+}
+function navPush(){
+ if(!NAVon)return;
+ NAVi++;
+ try{history.pushState(navState(),'')}catch(_){NAVi--}
+}
+function navReplace(){
+ if(!NAVon)return;
+ try{history.replaceState(navState(),'')}catch(_){}
+}
+
+/* ---- 화면 이동에 방문 기록 남기기 ---- */
+const _go=go;
+go=function(v){
+ const same=(v===view);
+ NAVexit=0;                 /* 다른 화면으로 옮기면 종료 확인을 초기화 */
+ _go(v);
+ if(same)navReplace(); else navPush();
+};
+/* openDay · openTag 는 내부에서 go() 를 부르므로 중복 기록을 막고
+   상태(날짜 · 태그)만 현재 기록에 덮어씁니다. */
+const _openDay=openDay;
+openDay=function(k){
+ const i0=NAVi, b=view+'|'+selDate;
+ _openDay(k);
+ if(NAVi!==i0)navReplace();
+ else if(view+'|'+selDate!==b)navPush();
+};
+if(typeof openTag==='function'){
+ const _openTag=openTag;
+ openTag=function(id){
+  const i0=NAVi;
+  _openTag(id);
+  if(NAVi!==i0)navReplace();
+ };
+}
+
+/* ---- 뒤로가기 처리 ---- */
+function navPop(st){
+ NAVi=(st&&typeof st.i==='number')?st.i:0;
+ /* 1) 시트(입력창)가 열려 있으면 시트만 닫고 화면은 그대로 둔다 */
+ if(sheetOpen()){
+  try{document.getElementById('mk').classList.remove('on')}catch(_){}
+  navPush();
+  return;
+ }
+ /* 2) 기록이 있으면 그 화면으로 되돌린다 */
+ if(st&&st.app){
+  if(st.day)selDate=st.day;
+  if(typeof openTagId!=='undefined'&&st.tag!==undefined)openTagId=st.tag;
+  if(st.view&&V[st.view]){view=st.view;try{render()}catch(_){}
+   try{document.getElementById('scr').scrollTop=0}catch(_){}}
+  if(st.i>0)return;
+ }else{
+  /* 3) 기록이 없으면 홈으로 */
+  if(view!=='home'){view='home';try{render()}catch(_){}}
+ }
+ /* 4) 맨 처음 화면. 브라우저는 페이지를 스스로 닫을 수 없으므로
+       여기서는 안내만 하고, 한 번 더 누르면 브라우저가 알아서 나갑니다. */
+ NAVexit=Date.now();
+ try{toast('한 번 더 누르면 앱이 닫혀요')}catch(_){}
+}
+function navInit(){
+ try{
+  if(!window.history||!history.pushState)return;
+  NAVon=true; NAVi=0;
+  history.replaceState(navState(),'');
+  navPush();
+  window.addEventListener('popstate',e=>{try{navPop(e.state)}catch(_){}});
+ }catch(_){NAVon=false}
+}
+/* 헤더 ‹ 버튼도 방문 기록을 따라간다 */
+document.getElementById('bk').onclick=()=>{
+ if(NAVon){try{history.back();return}catch(_){}}
+ go(PARENT[view]||'cal');
+};
+
 /* 시작 */
 window.onerror=function(m){
  const el=document.getElementById('scr');
@@ -5593,6 +6452,7 @@ window.onerror=function(m){
 (async()=>{
  try{await load()}catch(_){S=JSON.parse(JSON.stringify(DEF))}
  try{render()}catch(e){window.onerror(e&&e.message||e)}
+ try{navInit()}catch(_){}
  try{
   if(S.sync&&(S.sync.email||S.sync.spaceId)){
    await initSB();
