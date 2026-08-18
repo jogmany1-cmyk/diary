@@ -855,7 +855,7 @@ const DEF={
  budget:{monthly:0,cats:{},alertPct:80,who:{our:0,me:0,you:0}},
  events:[], anniv:[], tasks:[], shop:[], goals:[], memos:[], trips:[], fixed:[], bucket:[], body:[],
  loc:{on:false,home:null,going:false,me:null,you:null,safeR:300}, notif:false,
- placeMeta:{}, photoMeta:{}, tags:[], tagStats:{}, catStats:{}, files:{},
+ placeMeta:{}, photoMeta:{}, tags:[], tagStats:{}, catStats:{}, cards:[], files:{},
  storage:{provider:'supabase',bucket:'photos',migrating:false},
  imgq:'std', gphotos:{clientId:''}, fileHash:{},
  skin:'legacy', theme:'system',
@@ -882,6 +882,7 @@ function migrate(){
  if(!S.budget)S.budget={monthly:0};
  if(!S.incomeCats||!S.incomeCats.length)S.incomeCats=JSON.parse(JSON.stringify(DEF.incomeCats));
  if(!Array.isArray(S.favPlaces))S.favPlaces=[];
+ if(!Array.isArray(S.cards))S.cards=[];
  if(!S.sync||typeof S.sync!=='object')S.sync=defSync();
  if(!S.sync.sig)S.sync.sig={};
  if(!S.kakaoKey)S.kakaoKey=DEF.kakaoKey;
@@ -1090,7 +1091,7 @@ function diagBox(){
 
 /* ================= 상태 ================= */
 let view='home', cur=new Date(), selDate=key(new Date()), q='', filt='all', ledOpen=null, mapFilt='all', catTab='out';
-const PARENT={day:'cal',search:'home',set:'more',cards:'set',cats:'set',favs:'set',sync:'set',
+const PARENT={day:'cal',search:'home',set:'more',cardlist:'more',cards:'set',cats:'set',favs:'set',sync:'set',
  noti:'more',anniv:'more',life:'more',goals:'more',trip:'more',budget:'more',fixed:'more',
  lfind:'led',list:'more',album:'more',stats:'more',bucket:'more',xls:'more',storage:'more',body:'more',loc:'more',alarm:'more',tags:'more',tag:'tags',gset:'more'};
 
@@ -2826,6 +2827,7 @@ V.more=()=>{
   ['🎯','공동 목표','저축 · 여행 · 구매 목표',"go('goals')"],
   ['✈️','여행 기록','기간별로 자동으로 묶기',"go('trip')"],
   ['📅','예산 관리','전체 · 카테고리별 예산',"go('budget')"],
+  ['💳','내 카드','실적 조건 · 설명서 PDF 읽기',"go('cardlist')"],
   ['🧾','고정비 · 반복지출','관리비 · 통신비 · 구독',"go('fixed')"],
   ['📊','가계부 엑셀','엑셀로 가져오기 · 내보내기',"go('xls')"],
   ['🖼️','사진 설정','화질 · Google Photos · 용량 정리',"go('gset')"],
@@ -5929,6 +5931,339 @@ function trendCard(){
  </div>`;
 }
 
+
+/* ================= 카드 (실적 조건 등록 · 설명서 PDF 읽기) ================= */
+
+function defCard(){return {id:'cd'+uid(),name:'',issuer:'',
+ perfBase:'prev', cycleFrom:1,
+ tiers:[], exCats:[], exSubs:[], exWords:[],
+ bnfMode:'whole', instMode:'full', exFreeInst:false,
+ openedAt:'', graceMonths:0, fee:'', memo:'', src:'', on:true}}
+
+/* 기존 S.pay.card(문자열 배열)와 이름으로 연결 */
+function cardOf(id){return (S.cards||[]).find(c=>c.id===id)||null}
+function cardByIssuer(n){return (S.cards||[]).find(c=>c.name===n||c.issuer===n)||null}
+function cardName(c){return c?(c.name||c.issuer||'카드'):'카드'}
+
+/* ---------- pdf.js 로더 ---------- */
+const PDFJS_CDN=[
+ 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs',
+ 'https://unpkg.com/pdfjs-dist@4.10.38/build/pdf.min.mjs',
+ 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs'];
+const PDFJS_WK=[
+ 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs',
+ 'https://unpkg.com/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs',
+ 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs'];
+let PDFERR='';
+async function loadPDFJS(){
+ if(window.pdfjsLib)return true;
+ if(location.protocol==='file:'){PDFERR='파일로 직접 열면 PDF를 읽을 수 없습니다. 인터넷 주소로 접속해주세요';return false}
+ for(let i=0;i<PDFJS_CDN.length;i++){
+  try{
+   const m=await import(PDFJS_CDN[i]);
+   window.pdfjsLib=m;
+   try{m.GlobalWorkerOptions.workerSrc=PDFJS_WK[i]}catch(_){}
+   return true;
+  }catch(_){}
+ }
+ PDFERR='PDF 모듈을 내려받지 못했습니다 (인터넷 확인)';
+ return false;
+}
+/* PDF → 전체 텍스트 */
+async function pdfText(file){
+ const buf=await file.arrayBuffer();
+ const doc=await pdfjsLib.getDocument({data:buf}).promise;
+ let out=[];
+ for(let p=1;p<=doc.numPages;p++){
+  const pg=await doc.getPage(p);
+  const tc=await pg.getTextContent();
+  let line='', last=null, lines=[];
+  tc.items.forEach(it=>{
+   const y=it.transform[5];
+   if(last!==null&&Math.abs(y-last)>3){lines.push(line);line=''}
+   line+=it.str; last=y;
+  });
+  lines.push(line);
+  out.push(lines.join('\n'));
+ }
+ return out.join('\n');
+}
+
+/* ---------- 설명서 파서 ---------- */
+const CARD_EXMAP=[
+ [/아파트\s*관리비|관리비\s*납부/, 'sub','관리비'],
+ [/부동산\s*임대료|임대료\s*납부|월세/, 'sub','월세'],
+ [/국세|지방세|공과금/, 'sub','공과금'],
+ [/건강보험|국민연금|고용보험|산재보험|4대\s*보험/, 'word','보험'],
+ [/상품권|기프트\s*\/?\s*선불카드|선불카드|사이버머니|전자지급수단/, 'word','상품권'],
+ [/학교\s*납입금|등록금|유치원\s*납입금/, 'word','등록금'],
+ [/대중교통/, 'sub','대중교통'],
+ [/단기카드대출|현금서비스/, 'word','현금서비스'],
+ [/장기카드대출|카드론/, 'word','카드론'],
+ [/연회비/, 'word','연회비']
+];
+function parseCardPdf(txt){
+ const T=String(txt||'');
+ const flat=T.replace(/[ \t]+/g,' ');
+ const c=defCard(); const got={}; const miss=[];
+ const mark=(k,v)=>{if(v!==null&&v!==undefined&&v!=='' &&!(Array.isArray(v)&&!v.length)){got[k]=true;return v}miss.push(k);return null};
+
+ /* 카드명 : 첫 번째 '…카드' 로 끝나는 짧은 줄 */
+ const lines=flat.split('\n').map(s=>s.trim()).filter(Boolean);
+ let nm=null;
+ for(const l of lines.slice(0,12)){
+  if(/카드$/.test(l)&&l.length<=20&&!/찾기|랭킹|비교/.test(l)){nm=l;break}
+ }
+ c.name=mark('name',nm)||'';
+ const iss=(flat.match(/(삼성|신한|현대|KB국민|국민|롯데|하나|우리|NH농협|농협|BC|씨티|카카오뱅크|토스뱅크)카드/)||[])[0];
+ c.issuer=mark('issuer',iss)||'';
+
+ /* 연회비 */
+ const fees=[...flat.matchAll(/(국내전용|해외겸용|국내겸용)\s*:?\s*([\d,]+)\s*원/g)]
+   .map(m=>m[1]+' '+m[2]+'원');
+ c.fee=mark('fee',fees.join(' · '))||'';
+
+ /* 실적 기준 */
+ c.perfBase = /전월\s*(이용금액|실적)/.test(flat) ? 'prev' : 'curr';
+ got.perfBase=true;
+ c.cycleFrom = /매월\s*1일부터\s*말일까지/.test(flat) ? 1 : 1;
+ got.cycleFrom=/매월\s*1일부터\s*말일까지/.test(flat);
+ if(!got.cycleFrom)miss.push('cycleFrom');
+
+ /* 실적 구간 : 표의 한 줄에 금액이 나열되고 다음 줄에 혜택 한도가 온다 */
+ const tiers=[];
+ (()=>{
+  const L=flat.split('\n').map(x=>x.trim()); const cand=[];
+  for(let i=0;i<L.length;i++){
+   const am=[...L[i].matchAll(/(\d+)\s*만원\s*이상/g)].map(m=>+m[1]*10000);
+   if(!am.length||L[i].length>90)continue;
+   if(/미만|이하/.test(L[i]))continue;
+   const seen={}; const uniq=am.filter(a=>seen[a]?false:(seen[a]=1));
+   if(!uniq.length)continue;
+   let caps=[];
+   for(let j=i+1;j<Math.min(i+3,L.length);j++){
+    if(!L[j])continue;
+    const cp=[...L[j].matchAll(/([\d,]+)\s*원/g)].map(m=>+m[1].replace(/,/g,'')).filter(v=>v>=1000);
+    if(cp.length){caps=cp;break}
+   }
+   cand.push({uniq,caps});
+  }
+  /* 구간이 가장 많이 나열된 줄을 표로 본다 (본문에 '전월실적 30만원 이상' 처럼
+     한 개만 언급된 줄이 앞에 나오는 경우가 많음) */
+  cand.sort((a,b)=>b.uniq.length-a.uniq.length);
+  const best=cand[0];
+  if(best)best.uniq.forEach((a,k)=>tiers.push({amount:a,cap:best.caps[k]||0,
+    label:best.caps[k]?comma(best.caps[k])+'원 혜택':''}));
+ })();
+ c.tiers=mark('tiers',tiers)||[];
+
+ /* 발급월 유예 */
+ const g=flat.match(/발급월\s*\+\s*(\d+)\s*개월/);
+ c.graceMonths=g?(+g[1]+1):0;
+ if(g)got.graceMonths=true; else miss.push('graceMonths');
+
+ /* 무이자 할부 / 할인건 처리 */
+ c.exFreeInst=/무이자\s*할부[^\n]{0,12}(이용금액|제외)/.test(flat);
+ got.exFreeInst=true;
+ c.bnfMode = /(할인이?\s*적용된|혜택이?\s*제공된)[\s\S]{0,40}(전체\s*)?이용금액/.test(flat) ? 'whole' : 'discount';
+ got.bnfMode=true;
+
+ /* 제외 대상 문장 수집 */
+ let blk='';
+ const b1=flat.match(/(?:전월\s*이용금액\s*제외\s*대상|실적\s*제외\s*대상)([\s\S]{0,900})/);
+ if(b1)blk=b1[1].split(/\n\s*-\s*(?:삼성카드 가맹점|결제 취소|BC카드|아래)/)[0];
+ const b2=flat.match(/\(단기카드대출[\s\S]{0,200}?해당되지\s*않음\)/);
+ const src=(blk||'')+' '+((b2&&b2[0])||'');
+ const subs=[],words=[];
+ CARD_EXMAP.forEach(([re,kind,val])=>{
+  if(re.test(src)){ if(kind==='sub'){if(!subs.includes(val))subs.push(val)}
+                    else {if(!words.includes(val))words.push(val)} }
+ });
+ c.exSubs=mark('exSubs',subs)||[];
+ c.exWords=mark('exWords',words)||[];
+ c.src=(blk||'').split('·').map(s=>s.replace(/\s+/g,' ').trim()).filter(s=>s.length>4).join('\n');
+
+ return {card:c, got, miss, raw:T};
+}
+
+/* ---------- 화면 : 카드 목록 ---------- */
+V.cardlist=()=>{
+ const L=S.cards||[];
+ return `
+ <div class="card" style="padding:6px 14px">
+   <div class="exp" style="cursor:pointer" onclick="cardPdfPick()">
+     <div class="ic">📄</div><div class="t"><b>설명서 PDF로 등록</b>
+     <span>카드사에서 받은 상품설명서를 넣으면 조건을 읽어옵니다</span></div>
+     <div style="color:var(--sub)">›</div></div>
+   <div class="exp" style="cursor:pointer" onclick="cdSheet()">
+     <div class="ic">✏️</div><div class="t"><b>직접 입력</b><span>조건을 하나씩 등록</span></div>
+     <div style="color:var(--sub)">›</div></div>
+ </div>
+ <div class="sec">등록한 카드 <span class="more">${L.length}장</span></div>
+ <div class="card">${L.length?L.map(c=>`
+   <div class="exp" onclick="cdSheet('${c.id}')">
+     <div class="ic">💳</div>
+     <div class="t"><b>${esc(cardName(c))}</b>
+       <span>${c.perfBase==='prev'?'전월실적':'당월실적'} 기준${c.tiers.length?' · '+c.tiers.map(t=>won(t.amount)).join(' / '):' · 구간 미설정'}</span>
+       ${c.exSubs.length||c.exWords.length?`<span>제외 ${[...c.exSubs,...c.exWords].join(' · ')}</span>`:''}</div>
+     <div class="x" onclick="event.stopPropagation();cdDel('${c.id}')">×</div></div>`).join('')
+  :`<div class="empty">아직 등록한 카드가 없어요</div>`}</div>
+ <div class="card" style="font-size:11.5px;color:var(--sub);line-height:1.75;font-weight:600">
+   실적 조건은 카드사 약관이 우선합니다. 이 화면의 값은 참고용이며, 실제 혜택 적용은
+   카드사 앱에서 확인해주세요.
+ </div>`;
+};
+
+/* ---------- PDF 고르기 → 파싱 → 확인 화면 ---------- */
+let CDP=null;
+function cardPdfPick(){
+ const i=document.createElement('input');
+ i.type='file'; i.accept='application/pdf,.pdf';
+ i.onchange=async()=>{ const f=i.files&&i.files[0]; if(f)await cardPdfRun(f) };
+ i.click();
+}
+async function cardPdfRun(f){
+ toast('설명서를 읽는 중…');
+ const ok=await loadPDFJS();
+ if(!ok)return sheet(`<h3>PDF를 읽지 못했어요</h3>
+  <div style="font-size:12.5px;color:var(--sub);font-weight:700;line-height:1.8">${esc(PDFERR)}</div>
+  <div class="btns"><button class="btn g" onclick="close_()">닫기</button>
+   <button class="btn p" onclick="close_();cdSheet()">직접 입력하기</button></div>`);
+ let txt='';
+ try{ txt=await pdfText(f) }catch(e){
+  return sheet(`<h3>PDF를 읽지 못했어요</h3>
+   <div style="font-size:12.5px;color:var(--sub);font-weight:700;line-height:1.8">
+     ${esc(String(e&&e.message||e))}</div>
+   <div class="btns"><button class="btn p" onclick="close_();cdSheet()">직접 입력하기</button></div>`);
+ }
+ if(txt.replace(/\s/g,'').length<200)
+  return sheet(`<h3>글자를 찾지 못했어요</h3>
+   <div style="font-size:12.5px;color:var(--sub);font-weight:700;line-height:1.8">
+     사진을 그대로 넣은 PDF(스캔본)는 읽을 수 없습니다.<br>카드사 홈페이지에서 받은 원본 PDF를 넣어주세요.</div>
+   <div class="btns"><button class="btn p" onclick="close_();cdSheet()">직접 입력하기</button></div>`);
+ CDP=parseCardPdf(txt);
+ cdConfirm();
+}
+function cdConfirm(){
+ const c=CDP.card, g=CDP.got;
+ const row=(k,lb,val)=>`<div class="drow"><span>${g[k]?'✓ ':'· '}${esc(lb)}</span>
+   <b style="color:${g[k]?'var(--ok)':'var(--sub)'}">${val||'못 찾음'}</b></div>`;
+ sheet(`<h3>설명서에서 읽은 내용</h3>
+ <div class="card" style="margin-top:0">
+   ${row('name','카드명',esc(c.name))}
+   ${row('issuer','카드사',esc(c.issuer))}
+   ${row('fee','연회비',esc(c.fee))}
+   ${row('perfBase','실적 기준',c.perfBase==='prev'?'전월 이용금액':'당월 이용금액')}
+   ${row('cycleFrom','산정 기간','매월 1일~말일')}
+   ${row('tiers','실적 구간',c.tiers.map(t=>won(t.amount)+(t.cap?'→'+won(t.cap):'')).join(' / '))}
+   ${row('graceMonths','발급 유예',c.graceMonths?c.graceMonths+'개월':'')}
+   ${row('exFreeInst','무이자할부',c.exFreeInst?'실적 제외':'실적 포함')}
+   ${row('bnfMode','할인받은 건',c.bnfMode==='whole'?'건 전체 제외':'할인액만 제외')}
+   ${row('exSubs','제외 분류',esc(c.exSubs.join(' · ')))}
+   ${row('exWords','제외 키워드',esc(c.exWords.join(' · ')))}
+ </div>
+ ${CDP.miss.length?`<div class="csug">못 찾은 항목 ${CDP.miss.length}개는 다음 화면에서 직접 채워주세요
+   <span>${esc(CDP.miss.join(', '))}</span></div>`:''}
+ ${c.src?`<div class="fl">설명서 원문 (제외 대상)</div>
+ <div class="card" style="font-size:11px;color:var(--sub);line-height:1.8;font-weight:600;white-space:pre-line">${esc(c.src)}</div>`:''}
+ <div class="btns" style="margin-top:14px">
+   <button class="btn g" onclick="close_()">취소</button>
+   <button class="btn p" onclick="cdFromPdf()">이대로 등록</button></div>`);
+}
+function cdFromPdf(){
+ if(!CDP)return;
+ CD=JSON.parse(JSON.stringify(CDP.card)); CDid=null;
+ close_(); setTimeout(()=>drawCD(),60);
+}
+
+/* ---------- 화면 : 카드 등록 · 수정 ---------- */
+let CD=null, CDid=null;
+function cdSheet(id){
+ CDid=id||null;
+ const f=id?cardOf(id):null;
+ CD=f?JSON.parse(JSON.stringify(f)):defCard();
+ drawCD();
+}
+function drawCD(){
+ const c=CD;
+ sheet(`<h3>${CDid?'카드 수정':'카드 등록'}</h3>
+ <div class="fl" style="margin-top:0">카드 이름</div>
+ <input class="in" id="cdN" placeholder="예: 토스 삼성카드" value="${esc(c.name)}" oninput="CD.name=this.value">
+ <div class="fl">카드사</div>
+ <div class="opts">${S.pay.card.map(x=>`<div class="opt sm ${c.issuer===x?'on':''}"
+   onclick="CD.issuer='${esc(x)}';drawCD()">${esc(x)}</div>`).join('')}</div>
+
+ <div class="fl">실적 기준</div>
+ <div class="seg">
+   <div class="sg ${c.perfBase==='prev'?'on':''}" onclick="CD.perfBase='prev';drawCD()">전월 실적</div>
+   <div class="sg ${c.perfBase==='curr'?'on':''}" onclick="CD.perfBase='curr';drawCD()">당월 실적</div></div>
+ <div style="font-size:11px;color:var(--sub);font-weight:700;margin:6px 2px 0;line-height:1.7">
+   ${c.perfBase==='prev'?'지난달에 쓴 금액으로 이번 달 혜택이 정해집니다':'이번 달에 쓴 금액이 이번 달 혜택에 바로 반영됩니다'}</div>
+
+ <div class="fl">실적 구간 <span class="more" onclick="CD.tiers.push({amount:0,cap:0,label:''});drawCD()">＋ 추가</span></div>
+ ${c.tiers.length?c.tiers.map((t,i)=>`<div style="display:flex;gap:7px;margin-bottom:7px;align-items:center">
+   <input class="in" inputmode="numeric" style="flex:1" placeholder="실적 금액" value="${t.amount?comma(t.amount):''}"
+     oninput="CD.tiers[${i}].amount=+this.value.replace(/[^0-9]/g,'')||0;this.value=CD.tiers[${i}].amount?comma(CD.tiers[${i}].amount):''">
+   <span style="color:var(--sub);font-weight:800">→</span>
+   <input class="in" style="flex:1.3" placeholder="혜택 (예: 스벅 1만원)" value="${esc(t.label)}"
+     oninput="CD.tiers[${i}].label=this.value">
+   <div class="x" onclick="CD.tiers.splice(${i},1);drawCD()">×</div></div>`).join('')
+ :`<div class="cmp" style="margin-top:0">구간을 추가해주세요</div>`}
+
+ <div class="fl">실적에서 빼는 분류</div>
+ <div class="opts">${['관리비','공과금','월세','통신비','대중교통','병원','약국'].map(s=>
+   `<div class="opt sm ${c.exSubs.includes(s)?'on':''}" onclick="cdTog('exSubs','${s}')">${s}</div>`).join('')}</div>
+ <div class="fl">실적에서 빼는 키워드</div>
+ <div class="opts">${['상품권','보험','세금','등록금','현금서비스','카드론','연회비','기프티콘'].map(s=>
+   `<div class="opt sm ${c.exWords.includes(s)?'on':''}" onclick="cdTog('exWords','${s}')">${s}</div>`).join('')}</div>
+
+ <div class="fl">할인받은 결제 건</div>
+ <div class="seg">
+   <div class="sg ${c.bnfMode==='whole'?'on':''}" onclick="CD.bnfMode='whole';drawCD()">건 전체 제외</div>
+   <div class="sg ${c.bnfMode==='discount'?'on':''}" onclick="CD.bnfMode='discount';drawCD()">할인액만 제외</div></div>
+
+ <div class="fl">할부</div>
+ <div class="seg">
+   <div class="sg ${c.instMode==='full'?'on':''}" onclick="CD.instMode='full';drawCD()">결제월 전액</div>
+   <div class="sg ${c.instMode==='monthly'?'on':''}" onclick="CD.instMode='monthly';drawCD()">회차별</div></div>
+ <div class="opts" style="margin-top:8px">
+   <div class="opt sm ${c.exFreeInst?'on':''}" onclick="CD.exFreeInst=!CD.exFreeInst;drawCD()">무이자 할부 실적 제외</div></div>
+
+ <div class="fl">발급월 (선택)</div>
+ <div style="display:flex;gap:7px">
+   <input class="in" type="month" style="flex:1" value="${esc(c.openedAt)}" onchange="CD.openedAt=this.value">
+   <input class="in" type="number" min="0" max="6" style="flex:0 0 96px" placeholder="유예"
+     value="${c.graceMonths||''}" onchange="CD.graceMonths=+this.value||0"></div>
+ <div style="font-size:11px;color:var(--sub);font-weight:700;margin:6px 2px 0">발급 후 실적 없이 혜택을 주는 개월 수</div>
+
+ <div class="fl">메모</div>
+ <input class="in" placeholder="한도·횟수 제한 등" value="${esc(c.memo)}" oninput="CD.memo=this.value">
+
+ <div class="btns" style="margin-top:14px">
+   ${CDid?`<button class="btn g" onclick="cdDel('${CDid}');close_()">삭제</button>`:`<button class="btn g" onclick="close_()">취소</button>`}
+   <button class="btn p" onclick="cdSave()">저장</button></div>`);
+}
+function cdTog(f,v){
+ const A=CD[f], i=A.indexOf(v);
+ if(i>=0)A.splice(i,1); else A.push(v);
+ drawCD();
+}
+function cdSave(){
+ if(!CD.name.trim()&&!CD.issuer)return toast('카드 이름을 입력해주세요');
+ if(!CD.name.trim())CD.name=CD.issuer;
+ S.cards=S.cards||[];
+ CD.tiers=(CD.tiers||[]).filter(t=>t.amount>0).sort((a,b)=>a.amount-b.amount);
+ if(CDid){const i=S.cards.findIndex(x=>x.id===CDid);if(i>=0)S.cards[i]=CD;else S.cards.push(CD)}
+ else S.cards.push(CD);
+ /* 결제수단 목록에도 없으면 추가 */
+ if(CD.name&&!S.pay.card.includes(CD.name)&&!S.pay.card.includes(CD.issuer))S.pay.card.push(CD.name);
+ save();close_();render();toast('카드를 등록했어요');
+}
+function cdDel(id){
+ S.cards=(S.cards||[]).filter(c=>c.id!==id);
+ save();render();toast('카드를 지웠어요 (지출 기록은 그대로 남아요)');
+}
+
 /* ================= 빠른 추가 ================= */
 function quickAdd(){
  sheet(`<h3>무엇을 기록할까요</h3>
@@ -5987,6 +6322,7 @@ const TITLE=()=>({
  life:['생활 관리','할 일 · 장보기 · 메모'], goals:['공동 목표','함께 모으기'],
  trip:['여행 기록','기간별 자동 정리'], budget:['예산 관리','전체 · 카테고리별'],
  fixed:['고정비','반복지출 관리'], lfind:['거래 검색','조건으로 찾기'],
+ cardlist:['내 카드','실적 조건 · 설명서 읽기'],
  album:['추억 모아보기','월별 · 장소별 · 태그별'], stats:['OUR DATA','우리의 기록'],
  bucket:['버킷리스트','함께 이루고 싶은 것'],
  body:['인바디 기록','체중 · 골격근량 · 체지방량'], loc:['위치 공유','귀가 · 안심 알림'],
@@ -6026,7 +6362,7 @@ function render(){
  document.getElementById('bk').style.display=PARENT[view]?'grid':'none';
  document.querySelector('.hd').classList.toggle('hide-t', wide&&(view==='cal'||view==='home'||view==='stats'));
  document.getElementById('fab').style.display=
-  ['home','cal','list','led','map','life','goals','trip','album','stats','fixed','bucket','body','lfind'].includes(view)?'grid':'none';
+  ['home','cal','list','led','map','life','goals','trip','album','stats','fixed','bucket','body','lfind','cardlist'].includes(view)?'grid':'none';
  const w=document.getElementById('who');
  w.innerHTML=`<span class="av" style="background:var(--${S.profile})">${esc(S.names[S.profile][0])}</span>`;
  const act=PARENT[view]||view;
@@ -6173,7 +6509,7 @@ function removeRecord(r){
  else if(r.kind==='places')d.places=[];
 }
 const SETKEYS=['names','since','checkItems','cats','incomeCats','pay','budget','favPlaces',
- 'events','anniv','tasks','shop','goals','memos','trips','fixed','bucket','body','loc','placeMeta','photoMeta','tags','tagStats','catStats','storage','imgq','gphotos'];
+ 'events','anniv','tasks','shop','goals','memos','trips','fixed','bucket','body','loc','placeMeta','photoMeta','tags','tagStats','catStats','cards','storage','imgq','gphotos'];
 function pickSettings(){const o={};SETKEYS.forEach(k=>o[k]=S[k]);return o}
 function applySettings(o){if(!o)return;SETKEYS.forEach(k=>{if(o[k]!==undefined)S[k]=o[k]})}
 
