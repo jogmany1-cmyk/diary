@@ -7984,7 +7984,7 @@ document.getElementById('bk').onclick=()=>{
    · Theme : 밝기 모드        light / dark / system (S.theme, 기본 system)
    · 데이터는 일절 건드리지 않는다. html 의 data-skin / data-theme 속성만 바꾼다.
    ========================================================== */
-const BUILD='2026-08-21 · v49 (음성 반복 수정)';
+const BUILD='2026-08-21 · v50 (음성 이어듣기 재시작)';
 const SKINS=[
  ['legacy','🌸','Legacy','지금까지 쓰던 기존 디자인'],
  ['couple','🧸','Couple','새로운 커플 다이어리 디자인']];
@@ -10370,51 +10370,79 @@ function voiceWhyOff(){
 /* ---------- Provider (교체 가능) ---------- */
 const VoiceProviders={
  web:{
-  label:'브라우저 음성인식', _r:null,
+  label:'브라우저 음성인식', _r:null, _st:null,
   available(){return voiceSupported()},
   start(o){
    if(!this.available())return false;
    this.cancel();
-   let r=null;
-   try{r=new VSR()}catch(_){return false}
-   try{
-    r.lang=voiceLocal().lang||'ko-KR';
-    /* 한 문장 끊어 듣지 않고 이어서 듣는다. 말이 끊겨도 계속 모은다 */
-    r.continuous=true; r.interimResults=true; r.maxAlternatives=1;
-   }catch(_){}
-   let segs=[], buf='', sent=false, silT=null, maxT=null;
-   const join=()=>segs.filter(Boolean).join(' ').replace(/\s+/g,' ').trim();
-   const clr=()=>{try{clearTimeout(silT)}catch(_){}try{clearTimeout(maxT)}catch(_){}silT=null;maxT=null};
-   const bump=()=>{try{clearTimeout(silT)}catch(_){}
-     silT=setTimeout(()=>{try{r.stop()}catch(_){}},VSILENCE)};
-   r.onstart=()=>{segs=[];buf='';sent=false;bump();
-     maxT=setTimeout(()=>{try{r.stop()}catch(_){}},VMAXMS);
-     try{o.onStart&&o.onStart()}catch(_){}};
-   r.onresult=e=>{
-    let itm='';
-    /* 같은 자리를 다시 보내오는 엔진이 있어 더하지 않고 덮어쓴다 */
-    for(let i=e.resultIndex;i<e.results.length;i++){
-     const t=e.results[i][0].transcript;
-     if(e.results[i].isFinal)segs[i]=t; else itm+=t;
-    }
-    buf=join();
-    bump();
-    try{ if(o.onInterim)o.onInterim(((buf+' '+itm).trim()).slice(-120)) }catch(_){}
+   const self=this;
+   /* 안드로이드 크롬은 continuous 를 무시하고 한 문장마다 스스로 끝낸다.
+      사용자가 완료를 누르거나 조용해질 때까지 알아서 다시 이어 듣는다. */
+   const st={acc:'', segs:[], sent:false, done:false, silT:null, maxT:null,
+             t0:Date.now(), tries:0, o:o};
+   this._st=st;
+   const merged=()=>vsegDedupe(vsegOne(st.acc, vsegMerge(st.segs)));
+   const clr=()=>{try{clearTimeout(st.silT)}catch(_){}try{clearTimeout(st.maxT)}catch(_){}
+     st.silT=null;st.maxT=null};
+   const finish=()=>{
+    if(st.sent)return; st.sent=true; st.done=true; clr();
+    self._r=null; self._st=null;
+    const t=String(merged()||'').trim();
+    try{ if(t&&o.onResult)o.onResult(t); else if(o.onEnd)o.onEnd() }catch(_){}
    };
-   r.onerror=e=>{clr();try{o.onError&&o.onError((e&&e.error)||'error')}catch(_){}};
-   r.onend=()=>{
-    clr(); this._r=null;
-    const t=String(join()||buf||'').trim(); segs=[]; buf='';
-    if(t&&!sent){sent=true;try{o.onResult&&o.onResult(t)}catch(_){}return}
-    try{o.onEnd&&o.onEnd()}catch(_){}
+   const bump=()=>{try{clearTimeout(st.silT)}catch(_){}
+     st.silT=setTimeout(()=>{st.done=true;try{self._r&&self._r.stop()}catch(_){}finish()},VSILENCE)};
+   const mk=()=>{
+    let r=null;
+    try{r=new VSR()}catch(_){return false}
+    try{
+     r.lang=voiceLocal().lang||'ko-KR';
+     r.continuous=true; r.interimResults=true; r.maxAlternatives=1;
+    }catch(_){}
+    r.onstart=()=>{ if(st.tries===1){try{o.onStart&&o.onStart()}catch(_){}} };
+    r.onresult=e=>{
+     let itm='';
+     for(let i=e.resultIndex;i<e.results.length;i++){
+      const t=e.results[i][0].transcript;
+      if(e.results[i].isFinal)st.segs[i]=t; else itm+=t;
+     }
+     bump();
+     try{ if(o.onInterim)o.onInterim(((merged()+' '+itm).trim()).slice(-120)) }catch(_){}
+    };
+    r.onerror=e=>{
+     const code=(e&&e.error)||'error';
+     if(code==='no-speech'&&!st.done&&merged()){ return }   /* 잠깐 조용한 것뿐 */
+     clr(); st.done=true; self._r=null; self._st=null;
+     if(st.sent)return; st.sent=true;
+     try{o.onError&&o.onError(code)}catch(_){}
+    };
+    r.onend=()=>{
+     if(st.sent)return;
+     st.acc=merged(); st.segs=[];
+     if(st.done||Date.now()-st.t0>VMAXMS||st.tries>=25){finish();return}
+     /* 엔진이 스스로 끝냈을 뿐이다. 이어서 다시 듣는다 */
+     if(!mk())finish();
+    };
+    st.tries++;
+    self._r=r;
+    try{r.start()}catch(_){self._r=null;return false}
+    return true;
    };
-   this._r=r;
-   try{r.start()}catch(_){this._r=null;return false}
+   st.maxT=setTimeout(()=>{st.done=true;try{self._r&&self._r.stop()}catch(_){}finish()},VMAXMS);
+   bump();
+   if(!mk()){clr();this._st=null;return false}
    return true;
   },
-  stop(){try{this._r&&this._r.stop()}catch(_){}},
+  stop(){
+   const st=this._st;
+   if(st)st.done=true;
+   try{this._r&&this._r.stop()}catch(_){}
+  },
   cancel(){
-   const r=this._r; this._r=null;
+   const st=this._st, r=this._r;
+   this._r=null; this._st=null;
+   if(st){st.sent=true;st.done=true;
+    try{clearTimeout(st.silT)}catch(_){} try{clearTimeout(st.maxT)}catch(_){}}
    if(!r)return;
    try{r.onresult=null;r.onend=null;r.onerror=null;r.onstart=null}catch(_){}
    try{r.abort()}catch(_){try{r.stop()}catch(__){}}
@@ -11579,6 +11607,50 @@ function voiceTextGo(kind){
    else{evSheet(null,today());EV.title=t;drawEV();toast('제목만 넣었어요. 시간을 정해주세요')}
   }catch(_){toast('내용을 옮기지 못했어요')}
  },120);
+}
+
+
+/* ==================================================================
+   음성 조각 합치기
+   ------------------------------------------------------------------
+   엔진마다 보내는 방식이 다르다.
+   · 증분형 : "월요일에" → "안동" → "기성청구하라고"
+   · 누적형 : "월요일에" → "월요일에 안동" → "월요일에 안동 기성청구하라고"
+   그냥 이어붙이면 누적형에서 앞말이 여러 번 쌓인다. 겹치는 부분을 찾아 합친다.
+   ================================================================== */
+function vsegMerge(list){
+ let acc='';
+ (list||[]).forEach(seg=>{ acc=vsegOne(acc,String(seg==null?'':seg)) });
+ return vsegDedupe(acc);
+}
+function vsegOne(acc,seg){
+ seg=seg.replace(/\s+/g,' ').trim();
+ if(!seg)return acc;
+ acc=acc.replace(/\s+/g,' ').trim();
+ if(!acc)return seg;
+ if(seg===acc)return acc;
+ if(seg.indexOf(acc)===0)return seg;          /* 누적형 : 새 조각이 지금까지를 품고 있다 */
+ if(acc.indexOf(seg)>=0)return acc;           /* 이미 들어 있는 말 */
+ const max=Math.min(acc.length,seg.length);
+ for(let n=max;n>=2;n--){                     /* 꼬리와 머리가 겹치면 그만큼만 이어붙인다 */
+  if(acc.slice(-n)===seg.slice(0,n))return acc+seg.slice(n);
+ }
+ return acc+' '+seg;
+}
+/* 그래도 남은 '월요일 월요일' 같은 반복을 접는다 */
+function vsegDedupe(t){
+ let w=String(t||'').replace(/\s+/g,' ').trim().split(' ').filter(Boolean);
+ for(let n=Math.min(6,Math.floor(w.length/2));n>=1;n--){
+  const out=[];
+  for(let i=0;i<w.length;){
+   if(i+2*n<=w.length && w.slice(i,i+n).join(' ')===w.slice(i+n,i+2*n).join(' ')){
+    out.push(...w.slice(i,i+n)); i+=2*n;
+    while(i+n<=w.length && w.slice(i-n,i).join(' ')===w.slice(i,i+n).join(' '))i+=n;
+   }else{ out.push(w[i]); i++ }
+  }
+  w=out;
+ }
+ return w.join(' ');
 }
 
 /* 시작 */
