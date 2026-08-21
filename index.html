@@ -854,6 +854,199 @@ html[data-theme="dark"] .wxi{--wxl:#E4D9D4; --wxw:#F4EAE4; --wxg:#C3B9B4}
 .cst b{display:block;font-size:15.5px;font-weight:900;margin-top:3px;letter-spacing:-.3px}
 .cst i{display:block;font-size:10px;color:var(--sub);font-weight:700;font-style:normal;margin-top:2px}
 .carhd{background:linear-gradient(135deg,var(--surface2),var(--card))}
+/* ==================================================================
+   Mint Skin — 민트 · 세이지 파스텔
+   ------------------------------------------------------------------
+   · 구조는 Couple 스킨을 그대로 쓴다 (캐릭터 · 기분 그림 · 날씨 그림 재사용).
+     applySkin 이 data-skin="couple" data-look="mint" 를 함께 걸어준다.
+   · 여기서는 색 · 여백 · 모서리 · 그림자 · 메뉴 모양만 새로 정의한다.
+   ================================================================== */
+html[data-look="mint"]{
+ --primary:#57B79C; --primary-lt:#E4F3EC; --accent:#3FA98C;
+ --me:#8FCBB8; --you:#9DC7D8; --our:#B9DCC9;
+ --ink:#22403A; --ink2:#4B6A62; --sub:#7E9A91; --ph:#A9C2B9;
+ --line:#E3F0E9; --line2:#D3E7DD;
+ --bg:#F4FAF6; --bg-grad:#F4FAF6;
+ --card:#FFFFFF; --surface2:#EDF6F1; --surface3:#F8FCFA;
+ --border:1px solid transparent;
+ --tint-rose:#F3C4C9; --tint-peach:#F6D9BC; --tint-cream:#F3EBBE;
+ --tint-mint:#A9DCC6; --tint-blue:#B6D6E4; --tint-lav:#CFD3EC; --tint-beige:#E4E9DE;
+ --hc1:#E7F5EE; --hc2:#EFF7E9; --hc3:#E6F1F5; --hc4:#F3F1E6;
+ --ic-bg:#E4F3EC; --chip-bg:#E7F3ED; --chip-ink:#4F8A76;
+ --pill-bg:#E4F3EC; --pill-ink:#3E8E75; --bar-bg:#E3F0E9; --hl:#DCEFC9;
+ --sel-bg:#57B79C; --sel-ink:#fff;
+ --sheet-bg:#FFFFFF; --tb-bg:rgba(255,255,255,.92); --tb-off:#8AA79E;
+ --scrim:rgba(28,58,50,.30); --toast-bg:rgba(28,58,50,.94); --toast-ink:#fff;
+ --btn-g-bg:#EDF6F1; --btn-g-ink:#4B6A62;
+ --btn-p-bg:linear-gradient(135deg,#63C3A6,#3FA98C); --fab-bg:linear-gradient(135deg,#6FCBAE,#3FA98C);
+ --hero-bg:linear-gradient(160deg,#CFEDE0,#EAF7F0);
+ --hero-ink:#2E6B5C; --map-bg:#EAF3EE;
+ --ok:#4FAE8C; --warn:#E39A78;
+ --r:26px; --r-s:14px; --r-m:18px; --r-l:26px; --r-sheet:30px; --r-pill:999px;
+ --sh0:0 2px 10px rgba(58,120,102,.05);
+ --sh1:0 8px 22px rgba(58,120,102,.07);
+ --sh2:0 14px 34px rgba(58,120,102,.11);
+ --sh-p:0 8px 20px rgba(63,169,140,.30);
+ --sh-fab:0 12px 26px rgba(63,169,140,.34);
+ --ico-line:#2E5A4E; --ico-fill:#E4F3EC;
+ --mint-wash:radial-gradient(120% 60% at 50% 0%,#DCF0E6 0%,rgba(244,250,246,0) 62%);
+}
+html[data-look="mint"][data-theme="dark"]{
+ --primary:#6FCBAE; --primary-lt:#1C332C; --accent:#7FD6BB;
+ --me:#7FC0AC; --you:#8FB6C6; --our:#9DC2AE;
+ --ink:#E7F2EC; --ink2:#B6CCC4; --sub:#8AA79E; --ph:#66817A;
+ --line:#274038; --line2:#315046;
+ --bg:#0F1F1B; --bg-grad:#0F1F1B;
+ --card:#172C26; --surface2:#1D3831; --surface3:#1A322B;
+ --hc1:#1B332C; --hc2:#1D3529; --hc3:#1A2E33; --hc4:#2A2E24;
+ --ic-bg:#1C332C; --chip-bg:#1D3831; --chip-ink:#8FD3BB;
+ --pill-bg:#1C332C; --pill-ink:#7FD6BB; --bar-bg:#274038; --hl:#3A4A2C;
+ --sheet-bg:#172C26; --tb-bg:rgba(23,44,38,.94); --tb-off:#7E9A91;
+ --scrim:rgba(6,16,13,.58); --toast-bg:rgba(10,26,21,.96);
+ --btn-g-bg:#1D3831; --btn-g-ink:#B6CCC4;
+ --btn-p-bg:linear-gradient(135deg,#5CBBA0,#3E9C82); --fab-bg:linear-gradient(135deg,#5CBBA0,#3E9C82);
+ --hero-bg:linear-gradient(160deg,#20463C,#152C26);
+ --hero-ink:#B9E4D4; --map-bg:#1D3831;
+ --ico-line:#CFE6DC; --ico-fill:#1C332C;
+ --sh0:0 2px 10px rgba(0,0,0,.22);
+ --sh1:0 8px 22px rgba(0,0,0,.26);
+ --sh2:0 14px 34px rgba(0,0,0,.34);
+ --mint-wash:radial-gradient(120% 60% at 50% 0%,#1B3B32 0%,rgba(15,31,27,0) 62%);
+}
+
+/* ---- 바탕 : 위에서 아래로 옅게 번지는 민트 ---- */
+html[data-look="mint"] body{background:var(--bg)}
+html[data-look="mint"] .bg{background:var(--mint-wash);opacity:1}
+
+/* ---- 헤더 : 크게, 여백 넉넉 ---- */
+html[data-look="mint"] .hd{padding:calc(env(safe-area-inset-top) + 18px) 20px 10px;gap:9px}
+html[data-look="mint"] .hd h1{font-size:23px;font-weight:900;letter-spacing:-.7px}
+html[data-look="mint"] .hd .sub{font-size:11.5px;color:var(--sub);font-weight:700;margin-top:3px}
+html[data-look="mint"] .hd .ib{width:40px;height:40px;border-radius:50%;background:var(--card);
+ box-shadow:var(--sh0);color:var(--ink2);border:0}
+html[data-look="mint"] .hd .ib svg{width:19px;height:19px}
+html[data-look="mint"] #vbtn.on{background:var(--primary);color:#fff;box-shadow:var(--sh-p)}
+html[data-look="mint"] .scr{padding:6px 16px 108px}
+
+/* ---- 카드 : 큰 라운드 + 부드러운 그림자 ---- */
+html[data-look="mint"] .card{background:var(--card);border:0;border-radius:var(--r);
+ padding:18px;margin-bottom:13px;box-shadow:var(--sh1);backdrop-filter:none}
+html[data-look="mint"] .sec{margin:24px 4px 11px;font-size:14.5px;font-weight:900;letter-spacing:-.3px}
+html[data-look="mint"] .sec .more{font-size:11.5px;font-weight:800;color:var(--primary)}
+
+/* ---- 홈 인사 : 민트 그라데이션 히어로 ---- */
+html[data-look="mint"] .hgreet{position:relative;display:flex;align-items:center;gap:8px;
+ background:var(--hero-bg);border-radius:var(--r-l);padding:18px 16px 16px;margin:4px 0 14px;
+ box-shadow:var(--sh1);overflow:hidden}
+html[data-look="mint"] .hgreet:before{content:"";position:absolute;right:-40px;top:-52px;
+ width:150px;height:150px;border-radius:50%;background:rgba(255,255,255,.34)}
+html[data-look="mint"] .hgreet:after{content:"";position:absolute;left:-34px;bottom:-58px;
+ width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.20)}
+html[data-look="mint"][data-theme="dark"] .hgreet:before{background:rgba(255,255,255,.06)}
+html[data-look="mint"][data-theme="dark"] .hgreet:after{background:rgba(255,255,255,.04)}
+html[data-look="mint"] .hgreet .hgc,html[data-look="mint"] .hgreet .hgt{position:relative;z-index:2}
+html[data-look="mint"] .hgreet .g{font-size:19px;letter-spacing:-.7px;color:var(--hero-ink)}
+html[data-look="mint"] .hgreet .n{color:var(--hero-ink);opacity:.92}
+html[data-look="mint"] .hgreet .n .hh{color:var(--primary)}
+html[data-look="mint"] .hgreet .d{color:var(--hero-ink);opacity:.72;font-size:11.5px}
+
+/* ---- 프로필 칩 : 히어로 위에 흰 알약 ---- */
+html[data-look="mint"] .prfsel{background:rgba(255,255,255,.60);backdrop-filter:blur(6px);padding:4px}
+html[data-look="mint"][data-theme="dark"] .prfsel{background:rgba(255,255,255,.08)}
+html[data-look="mint"] .prfsel button{color:var(--hero-ink);opacity:.72}
+html[data-look="mint"] .prfsel button.on{background:#fff;opacity:1;color:var(--ink);box-shadow:var(--sh0)}
+html[data-look="mint"][data-theme="dark"] .prfsel button.on{background:var(--card)}
+
+/* ---- 홈 타일 : 큰 라운드 · 톤 다른 민트 ---- */
+html[data-look="mint"] .hgrid{gap:12px;margin-bottom:6px}
+html[data-look="mint"] .hcard{border-radius:var(--r);padding:16px 15px 14px;min-height:118px;
+ box-shadow:var(--sh0);border:0}
+html[data-look="mint"] .hcard .ht{font-size:12.5px;color:var(--ink2);letter-spacing:-.2px}
+html[data-look="mint"] .hcard .hb{font-size:29px;letter-spacing:-1.4px}
+html[data-look="mint"] .hcard .hs{font-size:11px;color:var(--sub)}
+html[data-look="mint"] .hcard.c1{background:var(--hc1)}
+html[data-look="mint"] .hcard.c2{background:var(--hc2)}
+html[data-look="mint"] .hcard.c3{background:var(--hc3)}
+html[data-look="mint"] .hcard.c4{background:var(--hc4)}
+html[data-look="mint"] .hcard:active{transform:scale(.975)}
+
+/* ---- 하단 탭 : 떠 있는 알약 바 ---- */
+html[data-look="mint"] .tb{left:50%;transform:translateX(-50%);
+ width:calc(100% - 24px);max-width:440px;
+ bottom:calc(env(safe-area-inset-bottom) + 12px);
+ background:var(--tb-bg);backdrop-filter:blur(14px);
+ border:0;border-radius:var(--r-pill);padding:9px 6px;
+ box-shadow:var(--sh2)}
+html[data-look="mint"] .tb button{gap:3px;color:var(--tb-off);border-radius:var(--r-pill);padding:4px 0}
+html[data-look="mint"] .tb button.on{color:var(--primary)}
+html[data-look="mint"] .tb .ico{width:23px;height:23px}
+html[data-look="mint"] .tb span{font-size:9.5px;font-weight:800}
+
+/* ---- 탭 아이콘을 민트 톤으로 (커플 일러스트를 그대로 쓰되 색만 맞춘다) ---- */
+/* 커플 일러스트 아이콘 전체를 민트 톤으로. 캐릭터 사진·기분·날씨는 건드리지 않는다 */
+html[data-look="mint"] .ico,html[data-look="mint"] .hsi svg,
+html[data-look="mint"] .qk>div b svg{filter:hue-rotate(108deg) saturate(.82)}
+html[data-look="mint"] .hh,html[data-look="mint"] .hh *{filter:none}
+html[data-look="mint"] .chrimg,html[data-look="mint"] .mdi img,
+html[data-look="mint"] .wxi svg,html[data-look="mint"] .ava img,
+html[data-look="mint"] .pav img,html[data-look="mint"] .pav svg,
+html[data-look="mint"] .hill,html[data-look="mint"] .illbox{filter:none}
+html[data-look="mint"] .tb .ico{filter:hue-rotate(108deg) saturate(.72)}
+html[data-look="mint"] .tb button.on .ico{filter:hue-rotate(108deg) saturate(1.05)}
+html[data-look="mint"] .side .ico{filter:hue-rotate(108deg) saturate(.75)}
+
+/* ---- 떠 있는 + 버튼 ---- */
+html[data-look="mint"] .fab{width:58px;height:58px;border-radius:20px;
+ background:var(--fab-bg);box-shadow:var(--sh-fab);
+ bottom:calc(env(safe-area-inset-bottom) + 92px)}
+html[data-look="mint"] .fab:active{transform:scale(.94)}
+
+/* ---- 버튼 · 칩 ---- */
+html[data-look="mint"] .btn{border-radius:var(--r-m);padding:16px}
+html[data-look="mint"] .btn.p{background:var(--btn-p-bg);box-shadow:var(--sh-p)}
+html[data-look="mint"] .btn.g{background:var(--btn-g-bg);color:var(--btn-g-ink)}
+html[data-look="mint"] .chip,html[data-look="mint"] .tg,html[data-look="mint"] .pill{border-radius:var(--r-pill)}
+html[data-look="mint"] .opt{border-radius:var(--r-s)}
+html[data-look="mint"] .opt.on{background:var(--primary);color:#fff;border-color:transparent}
+html[data-look="mint"] .seg{background:var(--surface2);border-radius:var(--r-pill);padding:4px}
+html[data-look="mint"] .sg{border-radius:var(--r-pill);font-weight:800}
+html[data-look="mint"] .sg.on{background:var(--card);color:var(--ink);box-shadow:var(--sh0)}
+html[data-look="mint"] .sg.on.me{color:var(--me)} 
+html[data-look="mint"] .sg.on.you{color:var(--you)}
+html[data-look="mint"] .in{border-radius:var(--r-s);background:var(--surface3);border:1.5px solid var(--line)}
+html[data-look="mint"] .in:focus{border-color:var(--primary);background:var(--card)}
+
+/* ---- 시트 : 위쪽만 크게 둥글게 ---- */
+html[data-look="mint"] .sheet{border-radius:var(--r-sheet) var(--r-sheet) 0 0;padding:20px 20px calc(env(safe-area-inset-bottom) + 20px)}
+html[data-look="mint"] .sheet h3{font-size:17px;letter-spacing:-.5px}
+html[data-look="mint"] .qk>div{border-radius:var(--r-m);background:var(--surface2);border:0;padding:16px 8px}
+html[data-look="mint"] .qk>div:active{transform:scale(.97)}
+
+/* ---- 목록 행 ---- */
+html[data-look="mint"] .row,html[data-look="mint"] .exp{border-radius:var(--r-s)}
+html[data-look="mint"] .row .ic,html[data-look="mint"] .exp .ic{background:var(--surface2);border-radius:14px}
+html[data-look="mint"] .hr .th{border-radius:16px;background:var(--surface2)}
+html[data-look="mint"] .mhd .ic{border-radius:14px;background:var(--surface2)}
+
+/* ---- 달력 ---- */
+html[data-look="mint"] .cell{border-radius:var(--r-s)}
+html[data-look="mint"] .cell.td{background:var(--primary-lt)}
+html[data-look="mint"] .cell.sel{background:var(--primary);color:#fff}
+html[data-look="mint"] .lc1{border-radius:var(--r-s)}
+html[data-look="mint"] .lc1.on{background:var(--primary);color:#fff}
+
+/* ---- PC 사이드바 ---- */
+html[data-look="mint"] .side{background:var(--card);border-right:1px solid var(--line)}
+html[data-look="mint"] .side .logo{color:var(--primary);font-weight:900}
+html[data-look="mint"] .side button{border-radius:var(--r-m)}
+html[data-look="mint"] .side button.on{background:var(--primary-lt);color:var(--primary)}
+
+/* ---- 큰 화면에서는 탭바를 쓰지 않으므로 아래 여백 되돌림 ---- */
+@media(min-width:900px){
+ html[data-look="mint"] .scr{padding-bottom:40px}
+ html[data-look="mint"] .fab{bottom:34px}
+}
+
 </style>
 </head>
 <body>
@@ -7574,7 +7767,8 @@ document.getElementById('fab').onclick=()=>{
  if(view==='list'||view==='album'){try{QDATE=null;quickDiary();return}catch(_){}}
  if(view==='cal'){evSheet(null,selDate||today());return}
  if(view==='cardlist'){try{cdSheet();return}catch(_){}}
- if(view==='led'||view==='map'||view==='fixed'||view==='lfind'){selDate=key(new Date());expSheet();return}
+ if(view==='led'){selDate=(typeof ledDay!=='undefined'&&ledDay)?ledDay:key(new Date());expSheet();return}
+ if(view==='map'||view==='fixed'||view==='lfind'){selDate=key(new Date());expSheet();return}
  if(view==='life'){lifeTab==='shop'?(document.getElementById('shq')||{focus(){}}).focus():lifeTab==='memo'?mmSheet():tkSheet();return}
  if(view==='goals'){glSheet();return}
  if(view==='bucket'){bkSheet();return}
@@ -7984,17 +8178,21 @@ document.getElementById('bk').onclick=()=>{
    · Theme : 밝기 모드        light / dark / system (S.theme, 기본 system)
    · 데이터는 일절 건드리지 않는다. html 의 data-skin / data-theme 속성만 바꾼다.
    ========================================================== */
-const BUILD='2026-08-21 · v50 (음성 이어듣기 재시작)';
+const BUILD='2026-08-21 · v52 (Mint 스킨 추가)';
 const SKINS=[
  ['legacy','🌸','Legacy','지금까지 쓰던 기존 디자인'],
- ['couple','🧸','Couple','새로운 커플 다이어리 디자인']];
+ ['couple','🧸','Couple','따뜻한 핑크 커플 디자인'],
+ ['mint','🌿','Mint','싱그러운 민트 · 감성 레이아웃']];
 const THEMES=[['light','☀️','화이트'],['dark','🌙','다크'],['system','🖥️','시스템 설정']];
 function sysDark(){try{return window.matchMedia('(prefers-color-scheme:dark)').matches}catch(_){return false}}
 function themeMode(){const t=S&&S.theme;return t==='dark'?'dark':t==='light'?'light':(sysDark()?'dark':'light')}
 function skinName(){return (S&&S.skin)||'legacy'}
 function applySkin(){
  const h=document.documentElement;
- h.setAttribute('data-skin',skinName());
+ const sk=skinName();
+ /* mint 는 Couple 의 구조·캐릭터를 그대로 쓰고 색과 배치만 바꾼다 */
+ h.setAttribute('data-skin', sk==='mint'?'couple':sk);
+ if(sk==='mint')h.setAttribute('data-look','mint'); else h.removeAttribute('data-look');
  h.setAttribute('data-theme',themeMode());
  try{
   let m=document.querySelector('meta[name="theme-color"]');
@@ -8170,7 +8368,8 @@ const EMPTY_CHR={
  diary:'📔', cal:'📅', photo:'📷', search:'🔎', led:'💰'
 };
 /* ---- 표시 헬퍼 ---- */
-function coupleSkin(){return skinName()==='couple'}
+function coupleSkin(){const s=skinName();return s==='couple'||s==='mint'}
+function mintSkin(){return skinName()==='mint'}
 /* icoSvg 는 v3 모듈에서 정의 */
 /* 문자열 하나(이모지)를 아이콘으로 */
 function emoIco(e){const k=(e||'').replace(/\uFE0F/g,'');const n=EMAP[k];return n?icoSvg(n):''}
@@ -8320,13 +8519,7 @@ function homeCouple(){
    :`<div class="empty">아직 기록이 없어요</div>`}
  </div>
 
- <div class="sec">바로 하기</div>
- <div class="qk">
-   <div onclick="selDate=today();expSheet()"><b>${icoSvg('wallet')}</b><span>지출</span></div>
-   <div onclick="evSheet(null,today())"><b>${icoSvg('cal')}</b><span>일정</span></div>
-   <div onclick="openDay(today())"><b>${icoSvg('diary')}</b><span>일기</span></div>
-   <div onclick="go('more')"><b>${icoSvg('sparkle')}</b><span>더보기</span></div>
- </div>`;
+ `;
 }
 /* 5탭 (couple 전용) : 홈 · 다이어리 · 캘린더 · 가계부 · 지도 */
 const TABS5=['home','cal','list','led','map','more'];
@@ -8666,12 +8859,7 @@ function homeCouple(){
 
  ${(()=>{try{return carHomeCard()}catch(_){return ''}})()}
 
- <div class="qk">
-   <div onclick="selDate=today();expSheet()"><b>${icoSvg('wallet')}</b><span>지출</span></div>
-   <div onclick="evSheet(null,today())"><b>${icoSvg('cal')}</b><span>일정</span></div>
-   <div onclick="openDay(today())"><b>${icoSvg('diary')}</b><span>일기</span></div>
-   <div onclick="quickAdd()"><b>${icoSvg('sparkle')}</b><span>＋ 기록</span></div>
- </div>`;
+ `;
 }
 /* 빈 상태 : 커플 일러스트 */
 function paintEmpty(root){
