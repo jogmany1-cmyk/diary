@@ -770,6 +770,8 @@ html[data-skin="couple"] .illbox img{height:100%;width:auto}
 html[data-skin="couple"] .illbox .illprop{width:34px;height:30px;flex:0 0 auto;margin-bottom:4px}
 html[data-skin="couple"] .hcard .hill{width:104px;height:74px;right:6px;bottom:6px}
 html[data-skin="couple"][data-theme="dark"] img.chrimg{filter:brightness(.94) saturate(.96)}
+#vbtn.on{background:var(--our);color:#fff}
+#vbtn.on svg{stroke:#fff}
 .micbtn{display:inline-flex;align-items:center;gap:5px;border:1.4px solid var(--line);background:var(--card);
  color:var(--sub);border-radius:13px;padding:7px 11px;font-size:11.5px;font-weight:800;cursor:pointer;
  font-family:inherit;line-height:1}
@@ -868,6 +870,7 @@ html[data-theme="dark"] .wxi{--wxl:#E4D9D4; --wxw:#F4EAE4; --wxg:#C3B9B4}
     <div id="syncdot" style="display:none;position:absolute;top:calc(env(safe-area-inset-top) + 12px);right:14px;width:8px;height:8px;border-radius:50%;background:var(--ok);z-index:5"></div>
     <button class="ib" id="nbtn" style="display:none" onclick="go('noti')"><svg viewBox="0 0 24 24"><path d="M18 9.6a6 6 0 1 0-12 0c0 5.4-2 6.6-2 6.6h16s-2-1.2-2-6.6z"/><path d="M10.4 19.6a2 2 0 0 0 3.2 0"/></svg></button>
     <button class="ib" id="mbtn" style="display:none" onclick="go('more')"><svg viewBox="0 0 24 24" stroke-width="2.6"><path d="M5.6 12h.01M12 12h.01M18.4 12h.01"/></svg></button>
+    <button class="ib" id="vbtn" style="display:none" aria-label="말로 기록하기" onclick="try{voiceCmdStart()}catch(_){}"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0"/><path d="M12 17.5V21"/></svg></button>
     <button class="ib" id="sbtn"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></button>
   </div>
   <div class="scr" id="scr"></div>
@@ -7981,7 +7984,7 @@ document.getElementById('bk').onclick=()=>{
    · Theme : 밝기 모드        light / dark / system (S.theme, 기본 system)
    · 데이터는 일절 건드리지 않는다. html 의 data-skin / data-theme 속성만 바꾼다.
    ========================================================== */
-const BUILD='2026-08-17 · CDS v15 (원본 일러스트)';
+const BUILD='2026-08-21 · v48 (상단 마이크 · 이어듣기)';
 const SKINS=[
  ['legacy','🌸','Legacy','지금까지 쓰던 기존 디자인'],
  ['couple','🧸','Couple','새로운 커플 다이어리 디자인']];
@@ -8417,6 +8420,10 @@ function paintHeader(){
  const hd=document.querySelector('.hd'); if(!hd)return;
  const cpl=coupleSkin();
  hd.classList.toggle('cpl-home',cpl&&view==='home');
+ const vb=document.getElementById('vbtn');
+ if(vb){let vok=false;try{vok=voiceOK()}catch(_){}
+  vb.style.display=vok?'grid':'none';
+  try{vb.classList.toggle('on',typeof VoiceManager!=='undefined'&&VoiceManager.state==='listening')}catch(_){}}
  const nb=document.getElementById('nbtn');
  if(nb){nb.style.display='grid';   /* 알림센터 진입점은 상단 종 하나뿐이라 스킨과 무관하게 보인다 */
    let n=0; try{n=notiNew()}catch(_){}
@@ -10372,20 +10379,33 @@ const VoiceProviders={
    try{r=new VSR()}catch(_){return false}
    try{
     r.lang=voiceLocal().lang||'ko-KR';
-    r.continuous=false; r.interimResults=true; r.maxAlternatives=1;
+    /* 한 문장 끊어 듣지 않고 이어서 듣는다. 말이 끊겨도 계속 모은다 */
+    r.continuous=true; r.interimResults=true; r.maxAlternatives=1;
    }catch(_){}
-   r.onstart=()=>{try{o.onStart&&o.onStart()}catch(_){}};
+   let buf='', sent=false, silT=null, maxT=null;
+   const clr=()=>{try{clearTimeout(silT)}catch(_){}try{clearTimeout(maxT)}catch(_){}silT=null;maxT=null};
+   const bump=()=>{try{clearTimeout(silT)}catch(_){}
+     silT=setTimeout(()=>{try{r.stop()}catch(_){}},VSILENCE)};
+   r.onstart=()=>{buf='';sent=false;bump();
+     maxT=setTimeout(()=>{try{r.stop()}catch(_){}},VMAXMS);
+     try{o.onStart&&o.onStart()}catch(_){}};
    r.onresult=e=>{
     let fin='',itm='';
     for(let i=e.resultIndex;i<e.results.length;i++){
      const t=e.results[i][0].transcript;
      if(e.results[i].isFinal)fin+=t; else itm+=t;
     }
-    try{ if(itm&&o.onInterim)o.onInterim(itm);
-         if(fin&&o.onResult)o.onResult(fin); }catch(_){}
+    if(fin)buf=(buf+' '+fin).trim();
+    bump();
+    try{ if(o.onInterim)o.onInterim(((buf+' '+itm).trim()).slice(-120)) }catch(_){}
    };
-   r.onerror=e=>{try{o.onError&&o.onError((e&&e.error)||'error')}catch(_){}};
-   r.onend=()=>{this._r=null;try{o.onEnd&&o.onEnd()}catch(_){}};
+   r.onerror=e=>{clr();try{o.onError&&o.onError((e&&e.error)||'error')}catch(_){}};
+   r.onend=()=>{
+    clr(); this._r=null;
+    const t=String(buf||'').trim(); buf='';
+    if(t&&!sent){sent=true;try{o.onResult&&o.onResult(t)}catch(_){}return}
+    try{o.onEnd&&o.onEnd()}catch(_){}
+   };
    this._r=r;
    try{r.start()}catch(_){this._r=null;return false}
    return true;
@@ -10401,6 +10421,8 @@ const VoiceProviders={
  /* native: Android 래퍼가 setProvider('native') 로 갈아끼운다 */
 };
 
+/* 말이 멈춘 뒤 이만큼 조용하면 마무리 · 아무리 길어도 이만큼에서 끊는다 */
+const VSILENCE=2600, VMAXMS=60000;
 /* ---------- Manager ---------- */
 const VoiceManager={
  state:'idle',      /* idle | listening | processing | review | error */
@@ -10584,6 +10606,7 @@ function voicePaint(){
   el.classList.add('on');
  }
  try{document.querySelectorAll('.micbtn').forEach(b=>b.classList.toggle('on',st==='listening'))}catch(_){}
+ try{const vb=document.getElementById('vbtn');if(vb)vb.classList.toggle('on',st==='listening')}catch(_){}
 }
 
 /* ---------- 안전 종료 ---------- */
@@ -10788,7 +10811,8 @@ function voiceStrip(s){
  t=t.replace(/[\d,]{3,}\s*(km|킬로|키로)?/gi,' ');
  t=t.replace(/주행\s*거리|계기판|현재\s*주행/g,' ');
  t=t.replace(/썼어|썼다|썼는데|샀어|샀다|결제했어|결제|계산했어|계산|지출|장봤어|장을?\s*봤어|먹었어|마셨어|냈어|들었어|했어요|했어|했다|함|했음|교체했어|교체|넣었어|기록해줘|적어줘|기록|추가해줘|해줘/g,' ');
- t=t.replace(/에서|에게|한테|으로|로|을|를|이|가|은|는|의|랑|와|과|도|만/g,' ');
+ /* 조사는 낱말 끝에서만 뗀다. 안 그러면 '편의점'이 '편 점'이 된다 */
+ t=t.replace(/(에서|에게|한테|으로|로|을|를|이|가|은|는|의|랑|와|과|도|만)(?=\s|$)/g,' ');
  return t.replace(/\s{2,}/g,' ').trim();
 }
 function voiceMerchant(s){
@@ -10803,7 +10827,10 @@ function voiceMerchant(s){
  }
  const t=voiceStrip(s);
  const w=t.split(/\s+/).filter(x=>x.length>=2);
- return w.length?w[0]:'';
+ if(!w.length)return '';
+ /* '다녀왔어' 같은 서술어보다 '편의점' 같은 이름을 고른다 */
+ const noun=w.find(x=>!/(했어|았어|었어|왔어|갔어|봤어|하다|이다)$/.test(x)&&!/[어다요지네까]$/.test(x));
+ return noun||w[0];
 }
 
 /* 차계부에서는 '주유' 같은 기록 종류 낱말을 상호로 잡지 않는다 */
@@ -11021,9 +11048,13 @@ function voiceCommand(txt,hint){
  const hn=hint||(c&&c.hint)||'';
  try{R=voiceParse(txt,{view:view,hint:hn})}catch(_){R=null}
  if(!R){toast('무슨 뜻인지 정확히 모르겠어요. 다시 말해 주세요');return}
- /* 지출·수입·이체·일정·차계부 → 확인 화면. text·일기는 예전처럼 바로 넣는다 */
+ /* 지출·수입·이체·일정·차계부 → 확인 화면 */
  if(typeof VREVIEW!=='undefined'&&VREVIEW.indexOf(R.intent)>=0){
   try{if(voiceReview(R))return}catch(_){}
+ }
+ /* 갈래를 못 정한 문장을 말없이 일기에 넣지 않는다 (마이크로 들어온 경우) */
+ if(R.intent==='text'&&(hn||(c&&c.mode==='cmd'))){
+  try{if(voiceTextAsk(R))return}catch(_){}
  }
  voiceApply(R);
 }
@@ -11498,6 +11529,46 @@ function qdGo(what){
  const k=qdKey(); QDATE=null;
  close_(); openDay(k);
  if(what==='photo')setTimeout(()=>{try{addPhoto()}catch(_){}},260);
+}
+
+
+/* 어느 갈래인지 못 정했을 때 : 무엇으로 넣을지 물어본다 */
+function voiceTextAsk(R){
+ if(!R||!R.fields)return false;
+ VREV=R;
+ try{VoiceManager.setState('review')}catch(_){}
+ const t=String(R.fields.text||R.rawText||'').trim();
+ sheet(`<h3>이렇게 들었어요</h3>
+ <div class="vrv">
+   <div class="vrvb"><div class="vrvr"><span>말한 내용</span><b>${esc(t)}</b></div></div>
+   <div class="vrvw"><div>· 지출인지 일정인지 알아듣지 못했어요. 어떻게 할까요?</div></div>
+ </div>
+ <div class="btns">
+   <button class="btn g" onclick="voiceReAsk()">다시 말하기</button>
+   <button class="btn p" onclick="voiceTextGo('diary')">일기에 적기</button>
+ </div>
+ <div class="btns" style="margin-top:9px">
+   <button class="btn g" onclick="voiceTextGo('expense')">지출로</button>
+   <button class="btn g" onclick="voiceTextGo('schedule')">일정으로</button>
+ </div>`);
+ return true;
+}
+function voiceTextGo(kind){
+ const R=VREV; VREV=null;
+ try{close_()}catch(_){}
+ if(!R)return;
+ const t=String((R.fields&&R.fields.text)||R.rawText||'').trim();
+ setTimeout(()=>{
+  try{
+   if(kind==='diary'){voiceApply({intent:'text',fields:{text:t},rawText:t,missing:[],ambiguous:[]});return}
+   let R2=null;
+   try{R2=voiceParse(t,{hint:kind})}catch(_){}
+   if(R2&&R2.intent!=='text'&&R2.intent!=='unknown'){voiceReview(R2)||voiceApply(R2);return}
+   /* 힌트로도 못 채우면 빈 폼을 열어 직접 넣게 한다 */
+   if(kind==='expense'){selDate=today();expSheet();EX.name=t;drawEX();toast('내용만 넣었어요. 금액을 넣어주세요')}
+   else{evSheet(null,today());EV.title=t;drawEV();toast('제목만 넣었어요. 시간을 정해주세요')}
+  }catch(_){toast('내용을 옮기지 못했어요')}
+ },120);
 }
 
 /* 시작 */
