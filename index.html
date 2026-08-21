@@ -7984,7 +7984,7 @@ document.getElementById('bk').onclick=()=>{
    · Theme : 밝기 모드        light / dark / system (S.theme, 기본 system)
    · 데이터는 일절 건드리지 않는다. html 의 data-skin / data-theme 속성만 바꾼다.
    ========================================================== */
-const BUILD='2026-08-21 · v48 (상단 마이크 · 이어듣기)';
+const BUILD='2026-08-21 · v49 (음성 반복 수정)';
 const SKINS=[
  ['legacy','🌸','Legacy','지금까지 쓰던 기존 디자인'],
  ['couple','🧸','Couple','새로운 커플 다이어리 디자인']];
@@ -10382,27 +10382,29 @@ const VoiceProviders={
     /* 한 문장 끊어 듣지 않고 이어서 듣는다. 말이 끊겨도 계속 모은다 */
     r.continuous=true; r.interimResults=true; r.maxAlternatives=1;
    }catch(_){}
-   let buf='', sent=false, silT=null, maxT=null;
+   let segs=[], buf='', sent=false, silT=null, maxT=null;
+   const join=()=>segs.filter(Boolean).join(' ').replace(/\s+/g,' ').trim();
    const clr=()=>{try{clearTimeout(silT)}catch(_){}try{clearTimeout(maxT)}catch(_){}silT=null;maxT=null};
    const bump=()=>{try{clearTimeout(silT)}catch(_){}
      silT=setTimeout(()=>{try{r.stop()}catch(_){}},VSILENCE)};
-   r.onstart=()=>{buf='';sent=false;bump();
+   r.onstart=()=>{segs=[];buf='';sent=false;bump();
      maxT=setTimeout(()=>{try{r.stop()}catch(_){}},VMAXMS);
      try{o.onStart&&o.onStart()}catch(_){}};
    r.onresult=e=>{
-    let fin='',itm='';
+    let itm='';
+    /* 같은 자리를 다시 보내오는 엔진이 있어 더하지 않고 덮어쓴다 */
     for(let i=e.resultIndex;i<e.results.length;i++){
      const t=e.results[i][0].transcript;
-     if(e.results[i].isFinal)fin+=t; else itm+=t;
+     if(e.results[i].isFinal)segs[i]=t; else itm+=t;
     }
-    if(fin)buf=(buf+' '+fin).trim();
+    buf=join();
     bump();
     try{ if(o.onInterim)o.onInterim(((buf+' '+itm).trim()).slice(-120)) }catch(_){}
    };
    r.onerror=e=>{clr();try{o.onError&&o.onError((e&&e.error)||'error')}catch(_){}};
    r.onend=()=>{
     clr(); this._r=null;
-    const t=String(buf||'').trim(); buf='';
+    const t=String(join()||buf||'').trim(); segs=[]; buf='';
     if(t&&!sent){sent=true;try{o.onResult&&o.onResult(t)}catch(_){}return}
     try{o.onEnd&&o.onEnd()}catch(_){}
    };
@@ -10793,8 +10795,8 @@ function carByName(text){
 /* ---------- 문장에서 군더더기 제거 ---------- */
 function voiceStrip(s){
  let t=String(s==null?'':s);
- t=t.replace(/그저께|그제|내일\s*모레|모레|어제|어저께|내일|오늘|방금|아까/g,' ');
- t=t.replace(/(이번|다음|담|저번|지난)\s*주/g,' ').replace(/[월화수목금토일]\s*요일/g,' ');
+ t=t.replace(/(그저께|그제|내일\s*모레|모레|어제|어저께|내일|오늘|방금|아까)(에는|에도|에)?/g,' ');
+ t=t.replace(/(이번|다음|담|저번|지난)\s*주/g,' ').replace(/[월화수목금토일]\s*요일(에는|에도|에)?/g,' ');
  t=t.replace(/(\d+)\s*일\s*(전|뒤|후)/g,' ');
  t=t.replace(/\d{1,2}\s*월\s*\d{1,2}\s*일/g,' ');
  t=t.replace(/오전|오후|아침|점심|저녁|밤|새벽/g,' ');
@@ -10810,9 +10812,16 @@ function voiceStrip(s){
  t=t.replace(new RegExp('['+KCH+'\\d]*[만억조][ '+KCH+'\\d]*','g'),' ');
  t=t.replace(/[\d,]{3,}\s*(km|킬로|키로)?/gi,' ');
  t=t.replace(/주행\s*거리|계기판|현재\s*주행/g,' ');
- t=t.replace(/썼어|썼다|썼는데|샀어|샀다|결제했어|결제|계산했어|계산|지출|장봤어|장을?\s*봤어|먹었어|마셨어|냈어|들었어|했어요|했어|했다|함|했음|교체했어|교체|넣었어|기록해줘|적어줘|기록|추가해줘|해줘/g,' ');
- /* 조사는 낱말 끝에서만 뗀다. 안 그러면 '편의점'이 '편 점'이 된다 */
- t=t.replace(/(에서|에게|한테|으로|로|을|를|이|가|은|는|의|랑|와|과|도|만)(?=\s|$)/g,' ');
+ t=t.replace(/썼어|썼다|썼는데|샀어|샀다|결제했어|결제|계산했어|계산|지출|장봤어|장을?\s*봤어|먹었어|마셨어|냈어|들었어|했어요|했어|했다|함|했음|교체했어|교체|넣었어|기록해줘|적어줘|기록|추가해줘|저장해줘|저장해|등록해줘|등록해|잡아줘|넣어줘|해줘|저장|등록/g,' ');
+ /* 조사는 낱말별로 뗀다. 짧은 낱말은 건드리지 않는다 ('치과'가 '치'가 되면 안 된다) */
+ const PART=/^(에|에서|에게|한테|으로|로|을|를|이|가|은|는|의|랑|와|과|도|만)$/;
+ t=t.split(/\s+/).map(w=>{
+   if(!w)return '';
+   if(PART.test(w))return '';                 /* 홀로 남은 조사는 버린다 */
+   w=w.replace(/(에서|에게|한테|으로)$/,'');
+   if(w.length>=3)w=w.replace(/[을를이가은는의랑와과도만로에]$/,'');
+   return w;
+ }).join(' ');
  return t.replace(/\s{2,}/g,' ').trim();
 }
 function voiceMerchant(s){
@@ -10891,7 +10900,8 @@ function voiceParse(text,ctx){
  if(!amount&&(time||schedWord)){
   R.intent='schedule';
   R.confidence=.4+(time?.3:0)+(date?.15:0)+(schedWord?.15:0);
-  let title=voiceStrip(s).replace(/약속|예약|일정|기록|추가/g,' ').replace(/\s{2,}/g,' ').trim();
+  /* '병원 예약' 처럼 약속·예약은 제목에 남겨둔다 */
+  let title=voiceStrip(s).replace(/일정|기록해|추가해/g,' ').replace(/\s{2,}/g,' ').trim();
   if(!title)title=voiceStrip(s);
   R.fields={date:date||today(),dateAssumed:!date,time:time||'',title:title,
     who:who.sc==='our'?'our':(who.by||'our'),cat:/병원|치과|진료/.test(s)?'병원':/여행/.test(s)?'여행':'커플'};
