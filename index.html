@@ -1047,6 +1047,295 @@ html[data-look="mint"] .side button.on{background:var(--primary-lt);color:var(--
  html[data-look="mint"] .fab{bottom:34px}
 }
 
+/* ==========================================================
+   Mint v2 — 민트 톤 계단 + 컬러 메뉴 박스
+   민트를 5단계로 쓰고, 코랄·피치·버터·네이비를 포인트로.
+   ========================================================== */
+html[data-look="mint"]{
+ --m50:#F0F9F5; --m100:#DFF2EA; --m200:#C2E6D8; --m300:#93D3BE;
+ --m400:#4FB89B; --m500:#218C74; --m600:#186B59; --m700:#114E41;
+ --coral:#F0876B; --coral-d:#D8563A; --coral-l:#FDEDE7;
+ --peach:#F6B98F; --peach-l:#FDF0E6;
+ --butter:#F2C77B; --butter-d:#C08A16; --butter-l:#FDF5E3;
+ --navy:#33456B; --navy-l:#E9ECF5; --lilac:#8E7FD0; --lilac-l:#EFEDFA;
+
+ --primary:var(--m500); --primary-lt:var(--m100); --accent:var(--m600);
+ --ink:#16302A; --ink2:#3B5D54; --sub:#6E8C83; --ph:#A3BDB3;
+ --line:var(--m100); --line2:var(--m200);
+ --bg:var(--m50); --card:#FFFFFF; --surface2:var(--m100); --surface3:#F7FCFA;
+ --sel-bg:var(--m500); --btn-p-bg:linear-gradient(135deg,var(--m400),var(--m600));
+ --fab-bg:linear-gradient(135deg,#F5987C,var(--coral-d));
+ --sh-fab:0 12px 26px rgba(216,86,58,.32);
+ --hero-bg:linear-gradient(150deg,#3FAE93 0%,#218C74 55%,#186B59 100%);
+ --hero-ink:#FFFFFF;
+ --hc1:var(--m100); --hc2:var(--butter-l); --hc3:var(--coral-l); --hc4:var(--navy-l);
+ --mint-wash:radial-gradient(120% 55% at 50% 0%,var(--m200) 0%,rgba(240,249,245,0) 60%);
+ --ok:var(--m500); --warn:var(--coral-d);
+}
+/* ---- 히어로 ---- */
+html[data-look="mint"] .hgreet .g,html[data-look="mint"] .hgreet .n,html[data-look="mint"] .hgreet .d{color:#fff}
+html[data-look="mint"] .hgreet .d{opacity:.85} html[data-look="mint"] .hgreet .n{opacity:.95}
+html[data-look="mint"] .hgreet:before{background:rgba(255,255,255,.15)}
+html[data-look="mint"] .hgreet:after{background:rgba(255,255,255,.09)}
+html[data-look="mint"] .prfsel{background:rgba(255,255,255,.22)}
+html[data-look="mint"] .prfsel button{color:rgba(255,255,255,.86)}
+html[data-look="mint"] .prfsel button.on{background:#fff;color:var(--ink)}
+/* ---- 홈 타일 : 네 가지 색 ---- */
+html[data-look="mint"] .hcard.c1 .hb{color:var(--m600)}
+html[data-look="mint"] .hcard.c2 .hb{color:var(--butter-d)}
+html[data-look="mint"] .hcard.c3 .hb{color:var(--coral-d)}
+html[data-look="mint"] .hcard.c4 .hb{color:var(--navy)}
+html[data-look="mint"] .hcard.c1 .ico{filter:hue-rotate(108deg) saturate(1)}
+html[data-look="mint"] .hcard.c2 .ico{filter:hue-rotate(28deg) saturate(1.15)}
+html[data-look="mint"] .hcard.c3 .ico{filter:hue-rotate(-8deg) saturate(1.05)}
+html[data-look="mint"] .hcard.c4 .ico{filter:hue-rotate(196deg) saturate(.85)}
+/* ---- 통계 항목 ---- */
+html[data-look="mint"] .hsi:nth-child(1) b{color:var(--m600)}
+html[data-look="mint"] .hsi:nth-child(2) b{color:var(--coral-d)}
+html[data-look="mint"] .hsi:nth-child(3) b{color:var(--butter-d)}
+html[data-look="mint"] .hsi:nth-child(4) b{color:var(--navy)}
+html[data-look="mint"] .hsi:nth-child(1) svg{filter:hue-rotate(108deg) saturate(.95)}
+html[data-look="mint"] .hsi:nth-child(2) svg{filter:hue-rotate(-8deg) saturate(1.05)}
+html[data-look="mint"] .hsi:nth-child(3) svg{filter:hue-rotate(28deg) saturate(1.15)}
+html[data-look="mint"] .hsi:nth-child(4) svg{filter:hue-rotate(196deg) saturate(.85)}
+/* ---- 섹션 제목 막대 ---- */
+html[data-look="mint"] .card .hsh{position:relative;padding-left:12px}
+html[data-look="mint"] .card .hsh:before{content:"";position:absolute;left:0;top:2px;bottom:2px;width:4px;
+ border-radius:99px;background:linear-gradient(180deg,var(--m400),var(--m600))}
+html[data-look="mint"] .sec .more{color:var(--coral-d)}
+html[data-look="mint"] #nbtn.dot:after{background:var(--coral-d)}
+
+/* ================= 컬러 메뉴 박스 ================= */
+/* 더보기 : 그룹마다 다른 색 */
+html[data-look="mint"] .card.mgrp{border-radius:24px;overflow:hidden;box-shadow:0 6px 18px rgba(33,140,116,.07)}
+html[data-look="mint"] .mgrp:has(.mhd[onclick*="'our'"]){background:var(--m100)}
+html[data-look="mint"] .mgrp:has(.mhd[onclick*="'life'"]){background:var(--butter-l)}
+html[data-look="mint"] .mgrp:has(.mhd[onclick*="'set'"]){background:var(--navy-l)}
+html[data-look="mint"] .mgrp:has(.mhd[onclick*="'data'"]){background:var(--coral-l)}
+html[data-look="mint"] .mgrp:has(.mhd[onclick*="'our'"]) .mhd .ic{color:var(--m600)}
+html[data-look="mint"] .mgrp:has(.mhd[onclick*="'life'"]) .mhd .ic{color:var(--butter-d)}
+html[data-look="mint"] .mgrp:has(.mhd[onclick*="'set'"]) .mhd .ic{color:var(--navy)}
+html[data-look="mint"] .mgrp:has(.mhd[onclick*="'data'"]) .mhd .ic{color:var(--coral-d)}
+html[data-look="mint"] .mgrp .mhd .ic{background:#fff;border-radius:15px;box-shadow:0 2px 8px rgba(20,60,50,.07)}
+html[data-look="mint"] .mgrp .exp,html[data-look="mint"] .mgrp .row{background:rgba(255,255,255,.72);
+ border-radius:16px;margin:6px 10px;padding:12px 12px}
+html[data-look="mint"] .mgrp .exp .ic,html[data-look="mint"] .mgrp .row .ic{background:transparent}
+html[data-look="mint"] .mgrp.on .mhd{border-bottom:0}
+/* 빠른 추가 타일 : 여섯 칸 색 다르게 */
+html[data-look="mint"] .qk>div:nth-child(1){background:var(--m100)}
+html[data-look="mint"] .qk>div:nth-child(2){background:var(--butter-l)}
+html[data-look="mint"] .qk>div:nth-child(3){background:var(--coral-l)}
+html[data-look="mint"] .qk>div:nth-child(4){background:var(--navy-l)}
+html[data-look="mint"] .qk>div:nth-child(5){background:var(--m200)}
+html[data-look="mint"] .qk>div:nth-child(6){background:var(--lilac-l)}
+html[data-look="mint"] .qk>div{border-radius:20px}
+html[data-look="mint"] .qk>div:nth-child(1) svg{filter:hue-rotate(108deg) saturate(1)}
+html[data-look="mint"] .qk>div:nth-child(2) svg{filter:hue-rotate(28deg) saturate(1.1)}
+html[data-look="mint"] .qk>div:nth-child(3) svg{filter:hue-rotate(-8deg) saturate(1.05)}
+html[data-look="mint"] .qk>div:nth-child(4) svg{filter:hue-rotate(196deg) saturate(.85)}
+/* 필터 칩 (전체·공동·보키·로키 / 사진·일기·특별한 날) */
+html[data-look="mint"] .seg{background:transparent;padding:0;gap:7px}
+html[data-look="mint"] .sg{background:#fff;border:1.5px solid var(--m100);color:var(--ink2);
+ box-shadow:0 2px 8px rgba(33,140,116,.05)}
+html[data-look="mint"] .sg.on{background:var(--m500);color:#fff;border-color:transparent}
+html[data-look="mint"] .sg.on.me{background:var(--coral-d)}
+html[data-look="mint"] .sg.on.you{background:var(--navy)}
+html[data-look="mint"] .sg.on.our{background:var(--m500)}
+html[data-look="mint"] .chip,html[data-look="mint"] .tg{background:var(--m100);color:var(--m600)}
+html[data-look="mint"] .chip.on,html[data-look="mint"] .tg.on{background:var(--m500);color:#fff}
+/* 가계부 요약 세 칸 */
+html[data-look="mint"] .lsum>div:nth-child(1) b{color:var(--m600)}
+html[data-look="mint"] .lsum>div:nth-child(2) b{color:var(--coral-d)}
+html[data-look="mint"] .lsum>div:nth-child(3) b{color:var(--navy)}
+/* 달력 */
+html[data-look="mint"] .cell.td,html[data-look="mint"] .lc1.td{background:var(--m100)}
+html[data-look="mint"] .cell.sel,html[data-look="mint"] .lc1.on{background:var(--m500);color:#fff}
+html[data-look="mint"] .lc1 i,html[data-look="mint"] .lc1 span{color:var(--coral-d)}
+html[data-look="mint"] .lc1.on i,html[data-look="mint"] .lc1.on span{color:#fff}
+/* 목록 행 아이콘 : 번갈아 톤 */
+html[data-look="mint"] .card .row:nth-child(odd) .ic{background:var(--m100)}
+html[data-look="mint"] .card .row:nth-child(even) .ic{background:var(--peach-l)}
+html[data-look="mint"] .hr .th{background:var(--m100)}
+html[data-look="mint"] .hr:nth-child(even) .th{background:var(--butter-l)}
+/* 하단탭 · 사이드 */
+html[data-look="mint"] .tb button.on{color:var(--m600)}
+html[data-look="mint"] .side button.on{background:var(--m100);color:var(--m600)}
+
+/* ================= v3 : 색을 더 넣고 포인트를 진하게 ================= */
+html[data-look="mint"]{
+ --coral-d:#C9482C; --butter-d:#A8760D; --navy:#2A3A5E; --lilac:#7A69C4;
+ --coral:#EE7A5C; --butter:#EFBB58; --sky:#3E8FB8; --sky-l:#E6F1F7;
+ --rose:#E0708F; --rose-l:#FBEAEF;
+ --me:#EE7A5C; --you:#4C7FBF; --our:#2FA98D;
+ --ok:#1B7A64; --warn:#C9482C;
+}
+/* ---- 가계부 : 사람 필터 칩마다 색 ---- */
+html[data-look="mint"] .whobar .wb{background:#fff;border:1.6px solid var(--m200);color:var(--ink2);
+ box-shadow:0 2px 8px rgba(33,140,116,.06)}
+html[data-look="mint"] .whobar .wb:nth-child(1){border-color:var(--m300)}
+html[data-look="mint"] .whobar .wb:nth-child(2){border-color:#9BD9C6;background:var(--m50)}
+html[data-look="mint"] .whobar .wb:nth-child(3){border-color:#F6C3B3;background:var(--coral-l)}
+html[data-look="mint"] .whobar .wb:nth-child(4){border-color:#B8CDE6;background:var(--sky-l)}
+html[data-look="mint"] .whobar .wb.on:nth-child(1){background:var(--m600);border-color:var(--m600);color:#fff}
+html[data-look="mint"] .whobar .wb.on:nth-child(2){background:var(--m500);border-color:var(--m500);color:#fff}
+html[data-look="mint"] .whobar .wb.on:nth-child(3){background:var(--coral-d);border-color:var(--coral-d);color:#fff}
+html[data-look="mint"] .whobar .wb.on:nth-child(4){background:var(--navy);border-color:var(--navy);color:#fff}
+/* ---- 수입 · 지출 · 잔액 세 칸에 색 ---- */
+html[data-look="mint"] .bs .b{border:0;box-shadow:0 4px 14px rgba(33,140,116,.06)}
+html[data-look="mint"] .bs .b:nth-child(1){background:var(--m100)}
+html[data-look="mint"] .bs .b:nth-child(2){background:var(--coral-l)}
+html[data-look="mint"] .bs .b:nth-child(3){background:var(--sky-l)}
+html[data-look="mint"] .bs .b:nth-child(1) span{color:var(--m600)}
+html[data-look="mint"] .bs .b:nth-child(2) span{color:var(--coral-d)}
+html[data-look="mint"] .bs .b:nth-child(3) span{color:var(--navy)}
+html[data-look="mint"] .bs .b:nth-child(3) b{color:var(--navy)}
+/* ---- 달력 : 지출 있는 날만 살구빛, 오늘은 민트 테두리 ---- */
+html[data-look="mint"] .lc1{background:var(--m50);border:1.5px solid transparent}
+html[data-look="mint"] .lc1:has(i),html[data-look="mint"] .lc1:has(span:not(:first-child)){background:var(--coral-l)}
+html[data-look="mint"] .lc1.td{border-color:var(--m400);background:#fff}
+html[data-look="mint"] .lc1.on{background:var(--m600);border-color:var(--m600);color:#fff}
+/* ---- 카드 안 진행 막대 ---- */
+html[data-look="mint"] .bar{background:var(--m100)}
+html[data-look="mint"] .card .prow+.bar i{border-radius:99px}
+/* ---- 더보기 : 줄마다 아이콘 색을 달리 ---- */
+html[data-look="mint"] .mgrp .exp{border-left:4px solid transparent}
+html[data-look="mint"] .mgrp .exp:nth-child(1){border-left-color:var(--coral-d)}
+html[data-look="mint"] .mgrp .exp:nth-child(2){border-left-color:var(--navy)}
+html[data-look="mint"] .mgrp .exp:nth-child(3){border-left-color:var(--butter-d)}
+html[data-look="mint"] .mgrp .exp:nth-child(4){border-left-color:var(--m500)}
+html[data-look="mint"] .mgrp .exp:nth-child(5){border-left-color:var(--lilac)}
+html[data-look="mint"] .mgrp .exp:nth-child(6){border-left-color:var(--rose)}
+html[data-look="mint"] .mgrp .exp:nth-child(7){border-left-color:var(--sky)}
+html[data-look="mint"] .mgrp .exp:nth-child(1) .ic{background:var(--coral-l)}
+html[data-look="mint"] .mgrp .exp:nth-child(2) .ic{background:var(--navy-l)}
+html[data-look="mint"] .mgrp .exp:nth-child(3) .ic{background:var(--butter-l)}
+html[data-look="mint"] .mgrp .exp:nth-child(4) .ic{background:var(--m100)}
+html[data-look="mint"] .mgrp .exp:nth-child(5) .ic{background:var(--lilac-l)}
+html[data-look="mint"] .mgrp .exp:nth-child(6) .ic{background:var(--rose-l)}
+html[data-look="mint"] .mgrp .exp:nth-child(7) .ic{background:var(--sky-l)}
+html[data-look="mint"] .mgrp .exp .ic{border-radius:13px;width:38px;height:38px;display:grid;place-items:center}
+/* ---- 더보기 위 통계 세 칸 ---- */
+html[data-look="mint"] .card.hstat .b:nth-child(1),html[data-look="mint"] .bs.hstat .b:nth-child(1){background:var(--m100)}
+html[data-look="mint"] .scr>.bs .b:nth-child(1){background:var(--m100)}
+html[data-look="mint"] .scr>.bs .b:nth-child(2){background:var(--butter-l)}
+html[data-look="mint"] .scr>.bs .b:nth-child(3){background:var(--lilac-l)}
+/* ---- 태그 칩 색 돌려쓰기 ---- */
+html[data-look="mint"] .tgrow .tg:nth-child(3n+1){background:var(--m100);color:var(--m600)}
+html[data-look="mint"] .tgrow .tg:nth-child(3n+2){background:var(--coral-l);color:var(--coral-d)}
+html[data-look="mint"] .tgrow .tg:nth-child(3n+3){background:var(--sky-l);color:var(--navy)}
+/* ---- 섹션 막대도 화면마다 다르게 ---- */
+html[data-look="mint"] .sec{color:var(--ink)}
+
+/* ---- 달력 : 지출 있는 날 살구빛 / 수입 있는 날 민트 ---- */
+html[data-look="mint"] .lc1:has(.mo){background:var(--coral-l)}
+html[data-look="mint"] .lc1:has(.pl){background:var(--m100)}
+html[data-look="mint"] .lc1 .mo{color:var(--coral-d);font-weight:800}
+html[data-look="mint"] .lc1 .pl{color:var(--m600);font-weight:800}
+html[data-look="mint"] .lc1.on,html[data-look="mint"] .lc1.on .mo,html[data-look="mint"] .lc1.on .pl{color:#fff}
+/* ---- 누가 얼마나 썼나 : 막대 세 개를 각각 다른 색으로 ---- */
+html[data-look="mint"] .card .bar{background:var(--m100);border-radius:99px;overflow:hidden}
+html[data-look="mint"] .card .bar:nth-of-type(4n+1) i{background:var(--m500)!important}
+html[data-look="mint"] .card .bar:nth-of-type(4n+2) i{background:var(--coral-d)!important}
+html[data-look="mint"] .card .bar:nth-of-type(4n+3) i{background:var(--butter-d)!important}
+html[data-look="mint"] .card .bar:nth-of-type(4n+4) i{background:var(--navy)!important}
+html[data-look="mint"] .card .prow .sw{width:9px;height:9px;border-radius:50%}
+
+/* ================= v4 : 다이어리 · 캘린더 색 보강 ================= */
+/* ---- 다이어리 필터 : 네 칸 각각 색 ---- */
+html[data-look="mint"] .filters .f{background:#fff;border:1.6px solid var(--m200);color:var(--ink2);
+ box-shadow:0 2px 8px rgba(33,140,116,.06);font-weight:800}
+html[data-look="mint"] .filters .f:nth-child(2){border-color:#B8CDE6;background:var(--sky-l)}
+html[data-look="mint"] .filters .f:nth-child(3){border-color:#F6C3B3;background:var(--coral-l)}
+html[data-look="mint"] .filters .f:nth-child(4){border-color:#EBD3A0;background:var(--butter-l)}
+html[data-look="mint"] .filters .f.on:nth-child(1){background:var(--m600);border-color:var(--m600);color:#fff}
+html[data-look="mint"] .filters .f.on:nth-child(2){background:var(--navy);border-color:var(--navy);color:#fff}
+html[data-look="mint"] .filters .f.on:nth-child(3){background:var(--coral-d);border-color:var(--coral-d);color:#fff}
+html[data-look="mint"] .filters .f.on:nth-child(4){background:var(--butter-d);border-color:var(--butter-d);color:#fff}
+/* ---- 다이어리 행 : 왼쪽 색 띠 + 썸네일 색 돌려쓰기 ---- */
+html[data-look="mint"] .lc{border-left:5px solid var(--m300);border-radius:20px;
+ box-shadow:0 4px 14px rgba(33,140,116,.06)}
+html[data-look="mint"] .lc:nth-child(4n+1){border-left-color:var(--m500)}
+html[data-look="mint"] .lc:nth-child(4n+2){border-left-color:var(--coral-d)}
+html[data-look="mint"] .lc:nth-child(4n+3){border-left-color:var(--butter-d)}
+html[data-look="mint"] .lc:nth-child(4n+4){border-left-color:var(--navy)}
+html[data-look="mint"] .lc:nth-child(4n+1) .th{background:var(--m100)}
+html[data-look="mint"] .lc:nth-child(4n+2) .th{background:var(--coral-l)}
+html[data-look="mint"] .lc:nth-child(4n+3) .th{background:var(--butter-l)}
+html[data-look="mint"] .lc:nth-child(4n+4) .th{background:var(--sky-l)}
+html[data-look="mint"] .lc .dt{color:var(--ink);font-weight:900}
+html[data-look="mint"] .lc .mt span{color:var(--ink2);font-weight:700}
+html[data-look="mint"] .lc .pill{background:var(--m100);color:var(--m600);font-weight:800}
+/* ---- 캘린더 : 빈 날은 비우고, 기록 있는 날만 물들인다 ---- */
+html[data-look="mint"] .cell{background:transparent;border:1.5px solid transparent;border-radius:14px}
+html[data-look="mint"] .cell:has(.sp){background:var(--coral-l)}
+html[data-look="mint"] .cell:has(.dy){background:var(--m100)}
+html[data-look="mint"] .cell:has(.sp):has(.dy){background:linear-gradient(160deg,var(--m100) 0%,var(--coral-l) 100%)}
+html[data-look="mint"] .cell:has(.dots){box-shadow:inset 0 0 0 1.5px var(--m200)}
+html[data-look="mint"] .cell.today{border-color:var(--m500);background:#fff;box-shadow:0 4px 12px rgba(33,140,116,.14)}
+html[data-look="mint"] .cell.today .d{color:var(--m600);font-weight:900}
+html[data-look="mint"] .cell.sel{background:var(--m600)}
+html[data-look="mint"] .cell.sel .d,html[data-look="mint"] .cell.sel .sp{color:#fff}
+html[data-look="mint"] .cell .sp{color:var(--coral-d);font-weight:800}
+html[data-look="mint"] .cell .d{color:var(--ink2);font-weight:800}
+/* 요일 머리 : 일요일 코랄 · 토요일 하늘 */
+html[data-look="mint"] .dow span{color:var(--sub);font-weight:800}
+html[data-look="mint"] .dow span:first-child{color:var(--coral-d)}
+html[data-look="mint"] .dow span:last-child{color:var(--navy)}
+/* ---- 다가오는 기념일 : D-day 배지에 색 ---- */
+html[data-look="mint"] .card .row .r,html[data-look="mint"] .card .exp .r{font-weight:900}
+html[data-look="mint"] .card .row:nth-of-type(4n+1) .ic{background:var(--m100)}
+html[data-look="mint"] .card .row:nth-of-type(4n+2) .ic{background:var(--coral-l)}
+html[data-look="mint"] .card .row:nth-of-type(4n+3) .ic{background:var(--butter-l)}
+html[data-look="mint"] .card .row:nth-of-type(4n+4) .ic{background:var(--sky-l)}
+html[data-look="mint"] .card .row:nth-of-type(4n+1) .r{color:var(--m600)}
+html[data-look="mint"] .card .row:nth-of-type(4n+2) .r{color:var(--coral-d)}
+html[data-look="mint"] .card .row:nth-of-type(4n+3) .r{color:var(--butter-d)}
+html[data-look="mint"] .card .row:nth-of-type(4n+4) .r{color:var(--navy)}
+/* ---- 상단 요약 줄 (지출 63,000원 · 일정 0개) ---- */
+html[data-look="mint"] .hd .sub b,html[data-look="mint"] .hd .sub .mo{color:var(--coral-d)}
+
+/* ================= Mint 다크 : 같은 규칙, 어두운 바탕용 ================= */
+html[data-look="mint"][data-theme="dark"]{
+ --m50:#101F1B; --m100:#1B322B; --m200:#264238; --m300:#3A6E5D;
+ --coral-l:#33221D; --butter-l:#312A19; --navy-l:#1D2334; --lilac-l:#251F33; --sky-l:#182A33; --rose-l:#301C24;
+ --coral-d:#F08A6C; --butter-d:#E2B457; --navy:#8FA9D6; --lilac:#A99BE4; --sky:#79B5D6; --rose:#EA93AC;
+ --primary:#6FCBAE; --accent:#8AD8BE; --primary-lt:#1B322B;
+ --ink:#E7F2EC; --ink2:#B6CCC4; --sub:#8AA79E;
+ --line:#243B34; --line2:#2E4A41;
+ --bg:#0F1F1B; --card:#172C26; --surface2:#1D3831; --surface3:#1A322B;
+ --hero-bg:linear-gradient(150deg,#1E5648 0%,#17453A 55%,#123830 100%);
+ --hero-ink:#DFF3EB;
+ --hc1:#1B332C; --hc2:#302A19; --hc3:#33221D; --hc4:#1D2334;
+ --btn-p-bg:linear-gradient(135deg,#3FA98C,#2A7D67);
+ --fab-bg:linear-gradient(135deg,#E4795C,#C9482C);
+ --mint-wash:radial-gradient(120% 55% at 50% 0%,#193830 0%,rgba(15,31,27,0) 60%);
+ --ok:#6FCBAE; --warn:#F08A6C;
+}
+html[data-look="mint"][data-theme="dark"] .prfsel{background:rgba(255,255,255,.10)}
+html[data-look="mint"][data-theme="dark"] .prfsel button.on{background:var(--card);color:var(--ink)}
+html[data-look="mint"][data-theme="dark"] .whobar .wb,
+html[data-look="mint"][data-theme="dark"] .filters .f,
+html[data-look="mint"][data-theme="dark"] .sg{background:var(--surface2);border-color:var(--line2);color:var(--ink2);box-shadow:none}
+html[data-look="mint"][data-theme="dark"] .whobar .wb:nth-child(3),
+html[data-look="mint"][data-theme="dark"] .filters .f:nth-child(3){background:var(--coral-l)}
+html[data-look="mint"][data-theme="dark"] .whobar .wb:nth-child(4),
+html[data-look="mint"][data-theme="dark"] .filters .f:nth-child(2){background:var(--sky-l)}
+html[data-look="mint"][data-theme="dark"] .filters .f:nth-child(4){background:var(--butter-l)}
+html[data-look="mint"][data-theme="dark"] .whobar .wb.on:nth-child(3),
+html[data-look="mint"][data-theme="dark"] .filters .f.on:nth-child(3){background:#C9482C;color:#fff;border-color:transparent}
+html[data-look="mint"][data-theme="dark"] .whobar .wb.on:nth-child(4),
+html[data-look="mint"][data-theme="dark"] .filters .f.on:nth-child(2){background:#3E6FA8;color:#fff;border-color:transparent}
+html[data-look="mint"][data-theme="dark"] .filters .f.on:nth-child(4){background:#A8760D;color:#fff;border-color:transparent}
+html[data-look="mint"][data-theme="dark"] .filters .f.on:nth-child(1),
+html[data-look="mint"][data-theme="dark"] .whobar .wb.on:nth-child(1),
+html[data-look="mint"][data-theme="dark"] .whobar .wb.on:nth-child(2){background:#2FA98D;color:#08201A;border-color:transparent}
+html[data-look="mint"][data-theme="dark"] .lc{box-shadow:none}
+html[data-look="mint"][data-theme="dark"] .cell.today{background:var(--surface2)}
+html[data-look="mint"][data-theme="dark"] .cell.sel .d,html[data-look="mint"][data-theme="dark"] .cell.sel .sp{color:#08201A}
+html[data-look="mint"][data-theme="dark"] .mgrp .exp,html[data-look="mint"][data-theme="dark"] .mgrp .row{background:rgba(255,255,255,.05)}
+html[data-look="mint"][data-theme="dark"] .mgrp .mhd .ic{background:rgba(255,255,255,.08);box-shadow:none}
+html[data-look="mint"][data-theme="dark"] .bs .b{box-shadow:none}
+
 </style>
 </head>
 <body>
@@ -8178,7 +8467,7 @@ document.getElementById('bk').onclick=()=>{
    · Theme : 밝기 모드        light / dark / system (S.theme, 기본 system)
    · 데이터는 일절 건드리지 않는다. html 의 data-skin / data-theme 속성만 바꾼다.
    ========================================================== */
-const BUILD='2026-08-21 · v52 (Mint 스킨 추가)';
+const BUILD='2026-08-22 · v53 (Mint 컬러 강화)';
 const SKINS=[
  ['legacy','🌸','Legacy','지금까지 쓰던 기존 디자인'],
  ['couple','🧸','Couple','따뜻한 핑크 커플 디자인'],
