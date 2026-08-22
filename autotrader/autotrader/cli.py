@@ -1,0 +1,356 @@
+"""명령줄 진입점.
+
+  python -m autotrader backtest [--csv DIR] [--config PATH] [--top N]
+  python -m autotrader screen   [--csv DIR] [--config PATH] [--top N]
+  python -m autotrader signal   [--csv DIR] [--config PATH] [--symbol S]
+  python -m autotrader paper    [--csv DIR] [--config PATH] [--cycles N]
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import logging
+import sys
+from typing import Optional
+
+from .backtest import Backtester
+from .broker import PaperBroker
+from .config import Config
+from .data import CsvProvider, SyntheticProvider
+from .data.base import DataProvider
+from .live import LiveTrader
+from .registry import StrategyRegistry
+from .screener import Screener
+
+
+def _provider(csv_dir: Optional[str]) -> DataProvider:
+    if csv_dir:
+        p = CsvProvider(csv_dir)
+        if not p.universe():
+            raise SystemExit(f"CSV 유니버스가 비어 있습니다: {csv_dir}")
+        return p
+    return SyntheticProvider()
+
+
+def _config(path: Optional[str], provider: DataProvider) -> Config:
+    cfg = Config.load(path) if path else Config.default()
+    if not cfg.universe.symbols:
+        cfg.universe.symbols = provider.universe()
+    return cfg
+
+
+def cmd_backtest(args) -> int:
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    provider = _provider(args.csv)
+    cfg = _config(args.config, provider)
+    # 데모 데이터에서는 진입장벽을 낮춰야 신호가 잡힌다.
+    if isinstance(provider, SyntheticProvider):
+        cfg.universe.min_price = 0
+        cfg.universe.min_avg_dollar_vol = 0
+    bt = Backtester(provider, cfg,
+                    ensemble_threshold=args.threshold,
+                    ensemble_min_votes=args.votes,
+                    trail_pct=args.trail)
+    rep = bt.run()
+    print("== 전체 성과 =====================================")
+    _dump_report(rep.all)
+    print("== TRAIN =========================================")
+    _dump_report(rep.train)
+    print("== VALIDATION ====================================")
+    _dump_report(rep.val)
+    print("== OUT-OF-SAMPLE  (실제 판단 근거) ================")
+    _dump_report(rep.oos)
+    print(f"trades={len(rep.trades)}  bars={len(rep.equity_curve)}  "
+          f"skipped(holiday)={rep.skipped_days}")
+    if rep.cost_audit is not None and rep.cost_audit.n_fills:
+        print("== 비용 감사 (실패 사례에서 배운 항목) =================")
+        c = rep.cost_audit
+        print(f"  {c.as_line()}")
+        print(f"  총 매매대금 {c.total_gross_volume:>16,.0f}")
+        print(f"  총 수수료   {c.total_fees:>16,.2f}")
+        print(f"  총 거래세   {c.total_taxes:>16,.2f}")
+        print(f"  평균 체결   {c.avg_trade_size:>16,.0f}")
+    if rep.accuracy is not None and getattr(rep.accuracy, "n", 0):
+        a = rep.accuracy
+        print("== AI 예측 정확도 ================================")
+        print(f"  n={a.n}  win_rate={a.win_rate:.3f}  avg_return={a.avg_return:.4f}  "
+              f"target_hit={a.target_hit_rate:.3f}  stop_hit={a.stop_hit_rate:.3f}")
+        for k, v in a.by_confidence_bucket.items():
+            print(f"    conf {k:<6} n={v['n']:>3}  win={v['win_rate']:.3f}  ret={v['avg_return']:+.4f}")
+    if args.output:
+        with open(args.output, "w", encoding="utf-8") as fh:
+            json.dump({
+                "all": rep.all.to_dict(),
+                "train": rep.train.to_dict(),
+                "val": rep.val.to_dict(),
+                "oos": rep.oos.to_dict(),
+                "n_trades": len(rep.trades),
+                "n_bars": len(rep.equity_curve),
+            }, fh, indent=2, ensure_ascii=False)
+    return 0
+
+
+def cmd_screen(args) -> int:
+    provider = _provider(args.csv)
+    cfg = _config(args.config, provider)
+    if isinstance(provider, SyntheticProvider):
+        cfg.universe.min_price = 0
+        cfg.universe.min_avg_dollar_vol = 0
+    screener = Screener(provider, cfg.universe, top_n=args.top)
+    sc = screener.rank()
+    if screener.last_stats is not None:
+        print(screener.last_stats.as_line())
+    print(f"{'RANK':<5}{'SYMBOL':<10}{'SCORE':>8}   factors")
+    for i, r in enumerate([x for x in sc if x.passed], 1):
+        f = " ".join(f"{k}={v:+.2f}" for k, v in r.factors.items())
+        print(f"{i:<5}{r.symbol:<10}{r.score:>8.3f}   {f}")
+    rejects = [x for x in sc if not x.passed]
+    if rejects:
+        print("\n제외:", ", ".join(f"{r.symbol}({r.reject_reason})" for r in rejects))
+    return 0
+
+
+def cmd_signal(args) -> int:
+    provider = _provider(args.csv)
+    cfg = _config(args.config, provider)
+    from .strategy import (DayBreakout, DayPullback, DayMomentum, SwingTrend,
+                           MeanReversion, Ensemble)
+    from .strategy.base import StrategyContext
+    strats = [DayBreakout(), DayPullback(), DayMomentum(), SwingTrend(), MeanReversion()]
+    ens = Ensemble(strats, cfg.weights,
+                   threshold=args.threshold, min_votes=args.votes)
+    syms = [args.symbol] if args.symbol else provider.universe()
+    for sym in syms:
+        try:
+            bars = provider.history(sym, cfg.universe.lookback_days)
+        except Exception:
+            continue
+        if len(bars) < 60:
+            continue
+        dec = ens.evaluate(StrategyContext(sym, bars, len(bars) - 1))
+        tag = "BUY" if dec.signal.side.value == "BUY" else "----"
+        print(f"{sym:<8} {tag}  score={dec.score:.2f} votes={dec.votes}  "
+              f"stop={dec.stop_hint:.0f}  target={dec.target_hint:.0f}  "
+              f"reason={dec.signal.reason}")
+    return 0
+
+
+def cmd_paper(args) -> int:
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    provider = _provider(args.csv)
+    cfg = _config(args.config, provider)
+    if isinstance(provider, SyntheticProvider):
+        cfg.universe.min_price = 0
+        cfg.universe.min_avg_dollar_vol = 0
+    broker = PaperBroker(cfg.backtest.initial_cash, cfg.costs)
+    reg = StrategyRegistry(args.registry) if args.registry else None
+    trader = LiveTrader(provider, broker, cfg,
+                        ensemble_threshold=args.threshold,
+                        ensemble_min_votes=args.votes,
+                        trail_pct=args.trail, dry_run=args.dry_run,
+                        registry=reg, validated_only=args.validated_only)
+    trader.allow_pre_market = args.allow_pre_market
+    trader.allow_after_market = args.allow_after_market
+    if reg is not None:
+        active = ", ".join(s_.name for s_ in trader.strategies) or "<none>"
+        print(f"[REGISTRY] validated_only={args.validated_only}  active={active}")
+    for i in range(args.cycles):
+        rep = trader.cycle()
+        state = "closed" if not rep.market_open else "open"
+        print(f"[{i+1}] market={state} cand={rep.candidates} sig={rep.signals} "
+              f"placed={rep.orders_placed} rej={rep.orders_rejected} "
+              f"closed={rep.closed_trades}")
+        for line in rep.details[:5]:
+            print(f"    · {line}")
+    acc = trader.tracker.report()
+    if acc.n:
+        print(f"\n예측 정확도: n={acc.n} 승률={acc.win_rate:.2f} "
+              f"평균수익={acc.avg_return:+.3f} 목표달성률={acc.target_hit_rate:.2f}")
+    return 0
+
+
+def cmd_fetch(args) -> int:
+    """키움 REST API 로 종목 시세를 캐시 폴더에 자동 수집.
+    자격증명은 환경변수(KIWOOM_APP_KEY / KIWOOM_APP_SECRET / KIWOOM_MODE)로."""
+    from .config import KiwoomConfig
+    from .data import KiwoomProvider
+    from .data.base import DataError
+
+    cfg = KiwoomConfig.from_env()
+    if args.real:
+        cfg.is_paper = False
+    try:
+        provider = KiwoomProvider(cfg, cache_dir=args.cache)
+    except DataError as exc:
+        print(f"[ERROR] {exc}")
+        return 2
+
+    symbols = args.symbol or provider.universe()
+    kind = f"{args.minutes}m" if args.minutes else "daily"
+    print(f"[FETCH] {len(symbols)}개 심볼 · {kind} → 캐시 {args.cache} "
+          f"(mode={'real' if args.real else 'paper'})")
+    if args.minutes:
+        ok, fail = provider.refresh_minutes(symbols, interval=args.minutes, limit=args.limit)
+    else:
+        ok, fail = provider.refresh_all(symbols, limit=args.limit)
+    print(f"[DONE ] ok={ok} fail={fail}")
+    return 0 if fail == 0 else 1
+
+
+def cmd_run_job(args) -> int:
+    """v0.8 스케줄러가 crontab 에서 호출할 표준 잡 실행."""
+    from .jobs import JobContext, run
+    ctx = JobContext(cache_dir=args.cache, registry_path=args.registry)
+    try:
+        msg = run(args.name, ctx)
+    except KeyError as exc:
+        print(f"[ERROR] {exc}")
+        return 2
+    print(msg)
+    return 0
+
+
+def cmd_validate(args) -> int:
+    reg = StrategyRegistry(args.registry)
+    th = reg.thresholds
+    print(f"승인 기준: PF>={th.min_oos_profit_factor} trades>={th.min_oos_trades} "
+          f"DD>={th.max_oos_drawdown} age<={th.max_age_days}d")
+    validated = set(reg.validated_names())
+    for rec in reg.all_records():
+        mark = "PASS" if rec.name in validated else "FAIL"
+        print(f"  [{mark}] {rec.name:<20} PF={rec.oos_profit_factor:.2f} "
+              f"trades={rec.oos_trades:>4} DD={rec.oos_max_drawdown:+.3f}")
+    return 0
+
+
+def cmd_schedule(args) -> int:
+    """실전 자동매매 표준 크론잡 세트를 crontab 형식으로 출력.
+    이 라인들을 `crontab -e` 로 등록하거나 systemd timer 로 변환해 쓴다."""
+    from .scheduler import JobRegistry
+    reg = JobRegistry()
+    reg.register("collect-5m", "*/5 9-15 * * 0-4", lambda t: None,
+                 description="평일 장중 5분봉 수집")
+    reg.register("collect-daily", "45 15 * * 0-4", lambda t: None,
+                 description="장 마감 후 일봉 수집")
+    reg.register("morning-entry", "30 9 * * 0-4", lambda t: None,
+                 description="09:30 진입 사이클")
+    reg.register("eod-flat", "0 15 * * 0-4", lambda t: None,
+                 description="15:00 EOD 일괄 청산")
+    reg.register("post-analysis", "30 15 * * 0-4", lambda t: None,
+                 description="장 마감 후 사후 분석 리포트")
+    print("# autotrader 표준 자동매매 크론잡 (crontab -e 에 붙여 넣기)")
+    for line in reg.crontab_lines(prefix_command=args.prefix):
+        print(line)
+    return 0
+
+
+def cmd_reconcile(args) -> int:
+    from .reconciler import SourceReconciler
+    a = CsvProvider(args.primary)
+    b = CsvProvider(args.secondary)
+    universe = sorted(set(a.universe()) | set(b.universe()))
+    if not universe:
+        raise SystemExit("두 원천 어디에도 종목이 없습니다")
+    # 데모용 조건: 최근 종가 > 20일 전 종가 (실전에서는 사용자 조건식으로 대체)
+    def predicate(view):
+        bars = view.bars()
+        if len(bars) < 21:
+            return False
+        return bars[-1].close > bars[-21].close
+    report = SourceReconciler(a, b).reconcile(universe, predicate)
+    print(report.summary())
+    if report.only_in_secondary:
+        print("누수 후보(only in secondary):", ", ".join(report.only_in_secondary[:20]))
+    return 0
+
+
+def _dump_report(rep) -> None:
+    d = rep.to_dict()
+    order = ["n_trades", "win_rate", "net_return", "cagr", "max_drawdown",
+             "sharpe", "sortino", "profit_factor", "expectancy",
+             "payoff_ratio", "avg_win", "avg_loss",
+             "max_consecutive_losses", "exposure_avg", "days"]
+    for k in order:
+        v = d[k]
+        if isinstance(v, float):
+            print(f"  {k:<24}{v:>12.4f}")
+        else:
+            print(f"  {k:<24}{v:>12}")
+
+
+def main(argv: Optional[list] = None) -> int:
+    parser = argparse.ArgumentParser("autotrader")
+    parser.add_argument("--csv", help="CSV 데이터 디렉터리")
+    parser.add_argument("--config", help="config.yaml 경로")
+    parser.add_argument("--threshold", type=float, default=0.55, help="앙상블 매수 임계값")
+    parser.add_argument("--votes", type=int, default=1, help="필요 최소 전략 수")
+    parser.add_argument("--trail", type=float, default=0.05, help="트레일링 스탑 비율")
+    sub = parser.add_subparsers(dest="cmd", required=True)
+
+    p_bt = sub.add_parser("backtest")
+    p_bt.add_argument("--output", help="결과 JSON 파일 경로")
+    p_bt.set_defaults(func=cmd_backtest)
+
+    p_sc = sub.add_parser("screen")
+    p_sc.add_argument("--top", type=int, default=20)
+    p_sc.set_defaults(func=cmd_screen)
+
+    p_sg = sub.add_parser("signal")
+    p_sg.add_argument("--symbol")
+    p_sg.set_defaults(func=cmd_signal)
+
+    p_pp = sub.add_parser("paper")
+    p_pp.add_argument("--cycles", type=int, default=3)
+    p_pp.add_argument("--dry-run", action="store_true", default=False)
+    p_pp.add_argument("--registry", help="StrategyRegistry JSON 경로")
+    p_pp.add_argument("--validated-only", action="store_true", default=False,
+                      help="레지스트리에서 승인된 전략만 실행")
+    p_pp.add_argument("--allow-pre-market", action="store_true", default=False,
+                      help="NXT 프리마켓(08:00~08:59) 참여")
+    p_pp.add_argument("--allow-after-market", action="store_true", default=False,
+                      help="NXT 애프터마켓(15:30~20:00) 참여")
+    p_pp.set_defaults(func=cmd_paper)
+
+    p_val = sub.add_parser("validate")
+    p_val.add_argument("--registry", required=True, help="레지스트리 JSON 경로")
+    p_val.set_defaults(func=cmd_validate)
+
+    p_rec = sub.add_parser("reconcile", help="두 데이터 원천 대조로 누락 종목 감지")
+    p_rec.add_argument("--primary", required=True, help="주 데이터 CSV 디렉터리 (예: KRX)")
+    p_rec.add_argument("--secondary", required=True, help="부 데이터 CSV 디렉터리 (예: KRX+NXT 통합)")
+    p_rec.set_defaults(func=cmd_reconcile)
+
+    p_sch = sub.add_parser("schedule", help="표준 자동매매 크론잡을 crontab 라인으로 출력")
+    p_sch.add_argument("--prefix", default="python -m autotrader run-job ",
+                       help="crontab 명령 프리픽스")
+    p_sch.set_defaults(func=cmd_schedule)
+
+    p_ft = sub.add_parser("fetch", help="키움 REST API 로 시세 자동 수집 (KiwoomProvider)")
+    p_ft.add_argument("--cache", default="./data/kiwoom",
+                      help="CSV 캐시 디렉터리")
+    p_ft.add_argument("--symbol", action="append",
+                      help="종목코드 (반복 지정 가능). 미지정 시 종목 마스터 전체")
+    p_ft.add_argument("--limit", type=int, default=500,
+                      help="종목당 최소 확보할 봉 수")
+    p_ft.add_argument("--minutes", type=int, default=0,
+                      help="분봉 간격(1/3/5/10/15/30/45/60). 0 이면 일봉 수집.")
+    p_ft.add_argument("--real", action="store_true",
+                      help="실전 서버 사용 (기본은 모의)")
+    p_ft.set_defaults(func=cmd_fetch)
+
+    p_rj = sub.add_parser("run-job", help="스케줄러가 크론에서 호출하는 표준 잡 실행")
+    p_rj.add_argument("name", choices=["morning-entry", "eod-flat",
+                                        "collect-daily", "collect-5m",
+                                        "post-analysis"],
+                      help="실행할 잡 이름")
+    p_rj.add_argument("--cache", default="./data/kiwoom",
+                      help="데이터 캐시 디렉터리")
+    p_rj.add_argument("--registry", help="StrategyRegistry JSON 경로")
+    p_rj.set_defaults(func=cmd_run_job)
+
+    args = parser.parse_args(argv)
+    return args.func(args)
+
+
+if __name__ == "__main__":  # pragma: no cover
+    sys.exit(main())
